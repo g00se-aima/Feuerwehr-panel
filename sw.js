@@ -1,10 +1,9 @@
 const CACHE_NAME = 'feuerwehr-app-v1';
 const CORE_ASSETS = [
-  '/',
-  '/index.html',
-  '/spa.js',
-  '/style.css',
-  '/manifest.webmanifest'
+  'index.html',
+  'spa.js',
+  'style.css',
+  'manifest.webmanifest'
 ];
 
 self.addEventListener('install', event => {
@@ -31,7 +30,7 @@ self.addEventListener('fetch', event => {
           }
         } catch (_) {}
         return r;
-      }).catch(() => caches.match('/index.html'));
+  }).catch(() => caches.match('index.html'));
     })
   );
 });

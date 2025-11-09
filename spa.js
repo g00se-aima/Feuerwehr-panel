@@ -2929,7 +2929,7 @@ function renderPage(page) {
 // Register a simple service worker to enable Add-to-Home-Screen standalone behavior
 try {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
       console.log('ServiceWorker registered', reg.scope);
     }).catch(err => {
       console.warn('ServiceWorker registration failed:', err);
