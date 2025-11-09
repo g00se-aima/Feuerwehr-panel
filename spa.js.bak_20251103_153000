@@ -1,0 +1,1678 @@
+// Initialize globals needed by SPA if not already provided by other scripts
+(function initSpaGlobals() {
+  try {
+    if (!window.ASSIGNMENT_DESTINATIONS) {
+      const staticDestinations = [
+        'AGW',
+        'Für Silschede',
+        'Von Silschede',
+        'TLF Azubi',
+        'Lager Hauptwache',
+        'Klutertbad',
+        'GWG'
+      ];
+      const vehicleNames = Array.isArray(window.VEHICLE_LIST)
+        ? window.VEHICLE_LIST.map(([title]) => title)
+        : [];
+      window.ASSIGNMENT_DESTINATIONS = staticDestinations.concat(vehicleNames);
+    }
+    // Prepare a map for custom vehicles (label -> file slug.html)
+    if (!window.CUSTOM_VEHICLE_MAP) {
+      window.CUSTOM_VEHICLE_MAP = {};
+    }
+  } catch (e) {
+    // Non-fatal; sidebar will just show static items or none if something goes wrong
+  }
+})();
+
+// ---- Custom Vehicles: helpers and registration ----
+// Pages that show vehicle button groups
+const VEHICLE_GROUP_PAGES = [
+  'hauptwache',
+  'loeschzug-milspe',
+  'loeschgruppe-voerde',
+  'loeschgruppe-oberbauer',
+  'loeschgruppe-rueggeberg',
+  'loeschgruppe-kuelchen'
+];
+
+function slugFromLabel(label) {
+  return String(label || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function ensureUniqueSlug(base) {
+  let slug = base;
+  let n = 2;
+  while (window.pages[slug]) {
+    slug = base + '-' + n;
+    n++;
+  }
+  return slug;
+}
+
+function getCustomVehiclesForGroup(groupKey) {
+  try {
+    const arr = JSON.parse(localStorage.getItem('custom_vehicles_' + groupKey) || '[]');
+    return Array.isArray(arr) ? arr : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveCustomVehiclesForGroup(groupKey, list) {
+  try { localStorage.setItem('custom_vehicles_' + groupKey, JSON.stringify(list || [])); } catch (_) {}
+}
+
+function getHiddenVehiclesForGroup(groupKey) {
+  try {
+    const arr = JSON.parse(localStorage.getItem('hidden_vehicles_' + groupKey) || '[]');
+    return Array.isArray(arr) ? arr : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveHiddenVehiclesForGroup(groupKey, list) {
+  try { localStorage.setItem('hidden_vehicles_' + groupKey, JSON.stringify(list || [])); } catch (_) {}
+}
+
+function registerCustomVehiclePage(vehicle) {
+  if (!vehicle || !vehicle.slug) return;
+  if (!window.pages[vehicle.slug]) {
+    window.pages[vehicle.slug] = {
+      title: vehicle.label || vehicle.slug,
+      content: `<div id="areas-container" class="card" style="margin-top:80px;"></div>`
+    };
+  }
+  // Add to sidebar destinations if not present
+  if (vehicle.label) {
+    const list = (window.ASSIGNMENT_DESTINATIONS = window.ASSIGNMENT_DESTINATIONS || []);
+    if (!list.includes(vehicle.label)) list.push(vehicle.label);
+    // Map label -> file for sidebar assignment
+    window.CUSTOM_VEHICLE_MAP = window.CUSTOM_VEHICLE_MAP || {};
+    window.CUSTOM_VEHICLE_MAP[vehicle.label] = vehicle.slug + '.html';
+  }
+}
+
+function addCustomVehicleToGroup(groupKey, label) {
+  const base = slugFromLabel(label);
+  if (!base) return null;
+  const slug = ensureUniqueSlug(base);
+  const list = getCustomVehiclesForGroup(groupKey);
+  const entry = { label, slug };
+  list.push(entry);
+  saveCustomVehiclesForGroup(groupKey, list);
+  registerCustomVehiclePage(entry);
+  return entry;
+}
+
+function renderCustomVehicleButtons(containerId, groupKey) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const items = getCustomVehiclesForGroup(groupKey);
+  const hidden = new Set(getHiddenVehiclesForGroup(groupKey));
+  items.forEach(({ label, slug }) => {
+    if (hidden.has(label)) return; // skip hidden labels
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.className = 'btn btn-black vehicle-btn';
+    btn.dataset.type = 'custom';
+    btn.dataset.slug = slug;
+    btn.addEventListener('click', () => navigate(slug));
+    container.appendChild(btn);
+  });
+}
+
+function injectAddVehicleButton(containerId, groupKey) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  // Wrapper row below existing buttons
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.justifyContent = 'center';
+  wrap.style.gap = '10px';
+  wrap.style.marginTop = '14px';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-purple';
+  addBtn.textContent = 'Fahrzeug hinzufügen';
+  addBtn.title = 'Neues Fahrzeug für diese Seite hinzufügen';
+  addBtn.addEventListener('click', () => {
+    const input = prompt('Name des Fahrzeugs (z.B. "6 HLF20 1")');
+    if (!input) return;
+    const entry = addCustomVehicleToGroup(groupKey, input.trim());
+    if (entry) {
+      // Re-render this page so the new button appears
+      renderPage(groupKey);
+    }
+  });
+  // Delete button
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn btn-red';
+  delBtn.textContent = 'Fahrzeug löschen';
+  delBtn.title = 'Fahrzeug von dieser Seite entfernen';
+  delBtn.addEventListener('click', () => {
+    showDeleteVehicleModal(containerId, groupKey);
+  });
+  wrap.appendChild(addBtn);
+  wrap.appendChild(delBtn);
+  // Insert after container
+  container.parentNode.insertBefore(wrap, container.nextSibling);
+}
+
+function enhanceVehicleSection(containerId, groupKey) {
+  // Remove statically-rendered vehicles that are hidden for this group
+  applyHiddenFilter(containerId, groupKey);
+  // Then render custom vehicles (also respects hidden)
+  renderCustomVehicleButtons(containerId, groupKey);
+  injectAddVehicleButton(containerId, groupKey);
+}
+
+function applyHiddenFilter(containerId, groupKey) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const hidden = new Set(getHiddenVehiclesForGroup(groupKey));
+  container.querySelectorAll('button.vehicle-btn').forEach(btn => {
+    const label = (btn.textContent || '').trim();
+    if (hidden.has(label)) {
+      btn.remove();
+    }
+  });
+}
+
+function showDeleteVehicleModal(containerId, groupKey) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const buttons = Array.from(container.querySelectorAll('button.vehicle-btn'));
+  if (buttons.length === 0) return;
+
+  // Overlay
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.background = 'rgba(0,0,0,0.4)';
+  overlay.style.zIndex = '1000';
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+
+  // Modal
+  const modal = document.createElement('div');
+  modal.style.position = 'absolute';
+  modal.style.left = '50%';
+  modal.style.top = '50%';
+  modal.style.transform = 'translate(-50%, -50%)';
+  modal.style.background = '#fff';
+  modal.style.borderRadius = '12px';
+  modal.style.boxShadow = '0 12px 32px rgba(0,0,0,0.2)';
+  modal.style.width = 'min(520px, 92vw)';
+  modal.style.maxHeight = '70vh';
+  modal.style.display = 'flex';
+  modal.style.flexDirection = 'column';
+  modal.style.padding = '16px';
+
+  const title = document.createElement('div');
+  title.textContent = 'Fahrzeug auf dieser Seite löschen';
+  title.style.fontWeight = '700';
+  title.style.fontSize = '1.1rem';
+  title.style.marginBottom = '10px';
+  modal.appendChild(title);
+
+  const listWrap = document.createElement('div');
+  listWrap.style.overflow = 'auto';
+  listWrap.style.padding = '6px 0';
+  listWrap.style.flex = '1';
+  listWrap.style.display = 'grid';
+  listWrap.style.gridTemplateColumns = '1fr';
+  listWrap.style.gap = '8px';
+
+  // Build list of vehicle labels present on this page only
+  const labels = buttons.map(b => (b.textContent || '').trim());
+  labels.forEach(label => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'space-between';
+    row.style.border = '1px solid #eee';
+    row.style.borderRadius = '8px';
+    row.style.padding = '8px 10px';
+    const span = document.createElement('span');
+    span.textContent = label;
+    const del = document.createElement('button');
+    del.className = 'btn btn-red';
+    del.textContent = 'Entfernen';
+    del.addEventListener('click', () => {
+      const pw = prompt('Passwort eingeben, um zu löschen:');
+      if (pw !== 'atemsch') {
+        alert('Falsches Passwort.');
+        return;
+      }
+      handleDeleteVehicle(groupKey, label);
+      if (document.body.contains(overlay)) document.body.removeChild(overlay);
+    });
+    row.appendChild(span);
+    row.appendChild(del);
+    listWrap.appendChild(row);
+  });
+  modal.appendChild(listWrap);
+
+  const footer = document.createElement('div');
+  footer.style.display = 'flex';
+  footer.style.justifyContent = 'flex-end';
+  footer.style.gap = '8px';
+  footer.style.marginTop = '10px';
+  const cancel = document.createElement('button');
+  cancel.className = 'btn btn-grey';
+  cancel.textContent = 'Abbrechen';
+  cancel.addEventListener('click', () => document.body.removeChild(overlay));
+  footer.appendChild(cancel);
+  modal.appendChild(footer);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
+
+function handleDeleteVehicle(groupKey, label) {
+  // Try to remove from custom vehicles in this group first
+  let list = getCustomVehiclesForGroup(groupKey);
+  const idx = list.findIndex(v => v.label === label);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+    saveCustomVehiclesForGroup(groupKey, list);
+  } else {
+    // Otherwise hide a static vehicle button by label for this group
+    const hidden = getHiddenVehiclesForGroup(groupKey);
+    if (!hidden.includes(label)) {
+      hidden.push(label);
+      saveHiddenVehiclesForGroup(groupKey, hidden);
+    }
+  }
+  // Re-render the page to reflect removal
+  renderPage(groupKey);
+}
+
+// --- Render Hauptwache Page ---
+function renderHauptwachePage() {
+  const main = document.getElementById('app-main');
+  main.innerHTML = `
+    <div class="card" style="margin-top:80px;">
+      <div id="vehicle-btns-haupt" class="page-buttons">
+        <button class="btn btn-black vehicle-btn" onclick="navigate('1-hlf20-1')">1 HLF20 1</button>
+        <button class="btn btn-black vehicle-btn" onclick="navigate('1-hlf20-3')">1 HLF20 3</button>
+        <button class="btn btn-black vehicle-btn" onclick="navigate('1-dlk23-1')">1 DLK23 1</button>
+        <button class="btn btn-black vehicle-btn" onclick="navigate('1-tlf4000-1')">1 TLF4000 1</button>
+        <!-- Add more here if needed -->
+        <!-- <button class=\"btn btn-black vehicle-btn\" onclick=\"navigate('tlf-azubi')\">TLF Azubi</button> -->
+      </div>
+    </div>
+  `;
+  // Append any custom vehicles and the add button
+  enhanceVehicleSection('vehicle-btns-haupt', 'hauptwache');
+  // Ensure setupGlobalSearch from script.js is available on window for SPA use
+  if (typeof window.setupGlobalSearch !== 'function' && typeof setupGlobalSearch === 'function') {
+    window.setupGlobalSearch = setupGlobalSearch;
+  }
+  // Call setupGlobalSearch to initialize the search functionality
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+} // <-- Add this closing brace to properly close renderHauptwachePage
+// --- Generic moveable button renderer for FL, TF, FH, etc. ---
+function renderMoveableButtons(container, numbers, prefix, className, styleFn) {
+
+  numbers.forEach(num => {
+    const btn = document.createElement('button');
+    btn.textContent = prefix + ' ' + num;
+    btn.setAttribute('draggable', 'true');
+    btn.className = 'btn ' + (className || '');
+    if (typeof styleFn === 'function') styleFn(btn, num);
+    btn.addEventListener('click', function() { showAssignmentSidebar(btn); });
+    container.appendChild(btn);
+  });
+}
+// --- Render Löschzug Milspe Page ---
+function renderLoeschzugMilspePage() {
+  const main = document.getElementById('app-main');
+  main.innerHTML = `
+    <div class="card" style="margin-top:80px;">
+      <div id="vehicle-btns-milspe" class="page-buttons">
+        <button class="btn btn-black vehicle-btn" onclick="navigate('1-hlf20-2')">1 HLF20 2</button>
+        <button class="btn btn-black vehicle-btn" onclick="navigate('3-lfkat20')">3 LFKat20</button>
+        <button class="btn btn-black vehicle-btn" onclick="navigate('gwg')">GWG</button>
+      </div>
+    </div>
+  `;
+  enhanceVehicleSection('vehicle-btns-milspe', 'loeschzug-milspe');
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+}
+// --- Render Löschgruppe Külchen Page ---
+function renderLoeschgruppeKuelchenPage() {
+  const main = document.getElementById('app-main');
+  main.innerHTML = `
+    <div class="card" style="margin-top:80px;">
+      <div id="vehicle-btns-kuelchen" class="page-buttons">
+        <button class="btn btn-black vehicle-btn" onclick="navigate('5-hlf20-1')">5 HLF20 1</button>
+      </div>
+    </div>
+  `;
+  enhanceVehicleSection('vehicle-btns-kuelchen', 'loeschgruppe-kuelchen');
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+}
+// --- Render Löschgruppe Rüggeberg Page ---
+function renderLoeschgruppeRueggebergPage() {
+  const main = document.getElementById('app-main');
+  main.innerHTML = `
+    <div class="card" style="margin-top:80px;">
+      <div id="vehicle-btns-rueggeberg" class="page-buttons">
+        <button class="btn btn-black vehicle-btn" onclick="navigate('4-lf10-1')">4 LF10 1</button>
+        <button class="btn btn-black vehicle-btn" onclick="navigate('4-tlf3000-1')">4 TLF3000 1</button>
+      </div>
+    </div>
+  `;
+  enhanceVehicleSection('vehicle-btns-rueggeberg', 'loeschgruppe-rueggeberg');
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+}
+// --- Render Löschgruppe Oberbauer Page ---
+function renderLoeschgruppeOberbauerPage() {
+  const main = document.getElementById('app-main');
+  main.innerHTML = `
+    <div class="card" style="margin-top:80px;">
+      <div id="vehicle-btns-oberbauer" class="page-buttons">
+        <button class="btn btn-black vehicle-btn" onclick="navigate('3-hlf20-1')">3 HLF20 1</button>
+      </div>
+    </div>
+  `;
+  enhanceVehicleSection('vehicle-btns-oberbauer', 'loeschgruppe-oberbauer');
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+}
+function showAssignmentSidebar(moveableBtn) {
+  if (!window.sidebar) {
+    const sb = document.createElement('div');
+    sb.id = 'assignment-sidebar';
+    sb.style.position = 'fixed';
+    sb.style.top = '0';
+    sb.style.right = '0';
+    sb.style.width = '340px';
+    sb.style.height = '100%';
+    sb.style.background = '#fff';
+    sb.style.boxShadow = '-4px 0 24px rgba(0,0,0,0.12)';
+    sb.style.zIndex = '200';
+    sb.style.display = 'flex';
+    sb.style.flexDirection = 'column';
+    sb.style.padding = '24px 18px 18px 18px';
+    sb.style.overflowY = 'auto';
+    window.sidebar = sb;
+  }
+  const sidebar = window.sidebar;
+  // Clear sidebar content before adding new elements
+  while (sidebar.firstChild) sidebar.removeChild(sidebar.firstChild);
+  sidebar.style.display = 'flex';
+
+  // Close button
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'sidebar-close-btn';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.title = 'Schließen';
+  closeBtn.onclick = () => { sidebar.style.display = 'none'; };
+  sidebar.appendChild(closeBtn);
+
+  // Title
+  const title = document.createElement('h2');
+  title.textContent = `Wohin soll ${moveableBtn.textContent} verschoben werden?`;
+  title.style.fontSize = '1.2rem';
+  title.style.margin = '0 0 18px 0';
+  sidebar.appendChild(title);
+
+  // Edit button
+  const editBtn = document.createElement('button');
+  editBtn.textContent = 'Text bearbeiten';
+  editBtn.className = 'btn btn-red';
+  editBtn.style.marginBottom = '18px';
+  editBtn.addEventListener('click', function() {
+    const newText = prompt('Neuer Text für Button:', moveableBtn.textContent);
+    if (newText) moveableBtn.textContent = newText;
+    sidebar.style.display = 'none';
+  });
+  sidebar.appendChild(editBtn);
+
+  // Assignment destinations grid
+  const btnGrid = document.createElement('div');
+  btnGrid.className = 'sidebar-assignment-grid';
+  let selectedVehicleFile = null;
+  (window.ASSIGNMENT_DESTINATIONS || []).forEach(dest => {
+    const abtn = document.createElement('button');
+    abtn.textContent = dest;
+    abtn.className = 'btn btn-grey sidebar-assignment-btn';
+    abtn.addEventListener('click', function() {
+      const fromList = (window.VEHICLE_LIST || []).find(([title, file]) => title === dest);
+      selectedVehicleFile = fromList ? fromList[1] : ((window.CUSTOM_VEHICLE_MAP || {})[dest] || null);
+      sidebar.style.display = 'none';
+      setTimeout(() => {
+        let areaSidebar = document.getElementById('area-select-sidebar');
+        if (!areaSidebar) {
+          areaSidebar = document.createElement('div');
+          areaSidebar.id = 'area-select-sidebar';
+          areaSidebar.style.position = 'fixed';
+          areaSidebar.style.top = '0';
+          areaSidebar.style.right = '0';
+          areaSidebar.style.width = '340px';
+          areaSidebar.style.height = '100%';
+          areaSidebar.style.background = '#fff';
+          areaSidebar.style.boxShadow = '-4px 0 24px rgba(0,0,0,0.12)';
+          areaSidebar.style.zIndex = '201';
+          areaSidebar.style.display = 'flex';
+          areaSidebar.style.flexDirection = 'column';
+          areaSidebar.style.padding = '24px 18px 18px 18px';
+          areaSidebar.style.overflowY = 'auto';
+        } else {
+          while (areaSidebar.firstChild) areaSidebar.removeChild(areaSidebar.firstChild);
+        }
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'sidebar-close-btn';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.title = 'Schließen';
+        closeBtn.onclick = () => { areaSidebar.style.display = 'none'; };
+        areaSidebar.appendChild(closeBtn);
+        const title = document.createElement('h2');
+        title.textContent = 'Wähle einen Bereich (z.B. Fluchthauben):';
+        title.style.fontSize = '1.2rem';
+        title.style.margin = '0 0 18px 0';
+        areaSidebar.appendChild(title);
+        const grid = document.createElement('div');
+        grid.className = 'sidebar-assignment-grid';
+        grid.style.display = 'flex';
+        grid.style.flexWrap = 'wrap';
+        grid.style.gap = '10px';
+        grid.style.marginBottom = '10px';
+  let filteredAreas = window.AREA_ASSIGNMENT_BUTTONS || window.AREA_TITLES || [];
+        grid.innerHTML = '';
+        filteredAreas.forEach(areaTitle => {
+          const areaId = areaTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          const btn = document.createElement('button');
+          btn.textContent = areaTitle;
+          btn.className = 'btn btn-grey sidebar-assignment-btn';
+          btn.style.flex = '1 1 48%';
+          btn.style.maxWidth = '48%';
+          btn.style.minWidth = '120px';
+          btn.style.boxSizing = 'border-box';
+          btn.addEventListener('click', function() {
+            const fromPage = window.location.hash.replace(/^#/, '');
+            const targetFile = selectedVehicleFile || fromPage;
+            if (moveableBtn.parentNode) moveableBtn.parentNode.removeChild(moveableBtn);
+            const moveablesKey = 'moveables_' + targetFile;
+            let moveables = [];
+            try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+            moveables.push({
+              label: moveableBtn.textContent,
+              areaId,
+              areaTitle,
+              className: moveableBtn.className,
+              style: moveableBtn.getAttribute('style'),
+              fromPage,
+              assignedToPage: targetFile,
+              timestamp: Date.now()
+            });
+            localStorage.setItem(moveablesKey, JSON.stringify(moveables));
+            const originKey = 'moveables_' + fromPage;
+            let originMoveables = [];
+            try { originMoveables = JSON.parse(localStorage.getItem(originKey) || '[]'); } catch (e) {}
+            originMoveables = originMoveables.filter(m => m.label !== moveableBtn.textContent);
+            localStorage.setItem(originKey, JSON.stringify(originMoveables));
+            areaSidebar.style.display = 'none';
+          });
+          grid.appendChild(btn);
+        });
+        areaSidebar.appendChild(grid);
+        if (!document.body.contains(areaSidebar)) {
+          document.body.appendChild(areaSidebar);
+        }
+        areaSidebar.style.display = 'flex';
+      }, 0);
+    });
+    btnGrid.appendChild(abtn);
+  });
+  sidebar.appendChild(btnGrid);
+
+  // Dismiss sidebar when clicking outside
+  setTimeout(() => {
+    function handler(e) {
+      if (sidebar.style.display !== 'none' && !sidebar.contains(e.target)) {
+        sidebar.style.display = 'none';
+        document.removeEventListener('mousedown', handler);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+  }, 100);
+
+  if (!document.body.contains(sidebar)) {
+    document.body.appendChild(sidebar);
+  }
+  sidebar.style.display = 'flex';
+}
+// --- SPA Pages Object: All page definitions at top level ---
+window.pages = {
+  'hauptmenu': {
+    title: 'Hauptmenü',
+    buttons: [
+      { label: 'Liste PA', page: 'liste-pa' },
+      { label: 'Liste Atemluftflaschen', page: 'liste-atemluftflaschen' },
+      { label: 'Liste Atemanschlüsse', page: 'liste-atemanschluesse' },
+      { label: 'Liste Fluchthauben', page: 'liste-fluchthauben' },
+      { label: 'Liste Technikflaschen', page: 'liste-technikflaschen' },
+      { label: 'Liste Sicherheitstrupptaschen', page: 'liste-sicherheitstrupptaschen' },
+      { label: 'Liste ERK-Geräte', page: 'liste-erk-geraete' },
+      { label: 'ABEK Filter', page: 'liste-abek-filter' },
+      { label: 'CSA', page: 'csa' },
+      { label: 'Messgeräte', page: 'messgeraete' },
+      { label: 'Atemschutzeinsatz', page: 'atemschutzeinsatz' },
+      { label: 'Lager Hauptwache Container', page: 'lager-hauptwache-container' },
+      { label: 'Silschede', page: 'silschede' },
+      { label: 'Für Silschede', page: 'fuer-silschede' },
+      { label: 'Von Silschede', page: 'von-silschede' },
+      { label: '3 LFKat20', page: '3-lfkat20' },
+      { label: '4 LF10 1', page: '4-lf10-1' },
+      { label: '4 TLF3000 1', page: '4-tlf3000-1' },
+      { label: '5 HLF20 1', page: '5-hlf20-1' },
+      { label: 'GWG', page: 'gwg' },
+      { label: 'AGW', page: 'AGW' },
+      { label: 'Löschzug Milspe', page: 'loeschzug-milspe' },
+      { label: 'Löschgruppe Külchen', page: 'loeschgruppe-kuelchen' },
+      { label: 'Klutertbad', page: 'klutertbad' }
+    ]
+  },
+  'uebersicht': {
+    title: 'Übersicht',
+    content: ''
+  },
+  'hauptwache': {
+    title: 'Hauptwache',
+    content: '' // Rendered by renderHauptwachePage
+  },
+  '1-hlf20-1': {
+    title: '1 HLF20 1',
+    content: `<div id="areas-container" class="card" style="margin-top:80px;"></div>`
+  },
+  'liste-pa': {
+    title: 'Liste PA',
+    content: `<div class="card"><div id="pa-btn-list"></div></div>`
+  },
+  'liste-atemluftflaschen': {
+    title: 'Liste Atemluftflaschen',
+    content: `<div class="card"><div id="fl-btn-list"></div></div>`
+  },
+  'liste-atemanschluesse': {
+    title: 'Liste Atemanschlüsse',
+    content: `<h1 class="page-title">Liste Atemanschlüsse</h1>`
+  },
+  'liste-fluchthauben': {
+    title: 'Liste Fluchthauben',
+    content: `<div class="card"><div id="fh-btn-list"></div></div>`
+  },
+  'liste-technikflaschen': {
+    title: 'Liste Technikflaschen',
+    content: `<div class="card"><div id="tf-btn-list"></div></div>`
+  },
+  'liste-sicherheitstrupptaschen': {
+    title: 'Liste Sicherheitstrupptaschen',
+    content: `<div class="card"><div id="si-btn-list"></div></div>`
+  },
+  'liste-erk-geraete': {
+    title: 'Liste ERK-Geräte',
+    content: `<div class="card"><div id="erk-btn-list"></div></div>`
+  },
+  'liste-abek-filter': {
+    title: 'ABEK Filter',
+    content: `<h1 class="page-title">ABEK Filter</h1>`
+  },
+  'csa': {
+    title: 'CSA',
+    content: `<div class="card" id="app"></div>`
+  },
+  'messgeraete': {
+    title: 'Messgeräte',
+    content: `<h1 class="page-title">Messgeräte</h1>`
+  },
+  'atemschutzeinsatz': {
+    title: 'Atemschutzeinsatz',
+    content: `<div class="card center-col"><form class="einsatz-form" style="width:100%;max-width:500px;display:flex;flex-direction:column;gap:16px;margin-bottom:24px;"><label style="font-weight:600;">Datum:<input type="text" class="search-input" placeholder="TT.MM.JJJJ" style="width:100%;margin-top:6px;" /></label><label style="font-weight:600;">Einsatznummer:<input type="text" class="search-input" placeholder="Einsatznummer" style="width:100%;margin-top:6px;" /></label><label style="font-weight:600;">Straße:<input type="text" class="search-input" placeholder="Straße" style="width:100%;margin-top:6px;" /></label><label style="font-weight:600;">Ort:<input type="text" class="search-input" placeholder="Ort" style="width:100%;margin-top:6px;" /></label><button type="button" class="btn btn-purple" id="btn-open-einsatz" style="margin-top:12px;font-size:1.1rem;">Einsatz Eröffnen</button></form><div id="einsatz-info-area"></div><button class="btn btn-grey" onclick="navigate('nummern-psa')">Nummern PSA</button></div>`
+  },
+  'lager-hauptwache-container': {
+    title: 'Lager Hauptwache Container',
+    content: `<h1 class="page-title">Lager Hauptwache Container</h1>`
+  },
+  'silschede': {
+    title: 'Silschede',
+    content: `<h1 class="page-title">Silschede</h1>`
+  },
+  'fuer-silschede': {
+    title: 'Für Silschede',
+    content: `<div class="card center-col"><div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-black" onclick="navigate('hauptmenu')">Hauptmenu</button></div><h1 class="page-title">Für Silschede</h1><button class="btn btn-purple" onclick="document.getElementById('modal-root').style.display='flex'">Ressource hinzufügen</button><div class="small-footer" style="margin-top:18px;text-align:center;color:#666;font-size:0.9rem"><span class="meta-muted">Automatisches Speichern aktiv. Änderungen werden sofort gesichert.</span></div></div>`
+  },
+  'von-silschede': {
+    title: 'Von Silschede',
+    content: `<h1 class="page-title">Von Silschede</h1>`
+  },
+  '3-lfkat20': {
+    title: '3 LFKat20',
+    content: `<div id="areas-container" class="card" style="margin-top:80px;"></div>`
+  },
+  '4-lf10-1': {
+    title: '4 LF10 1',
+    content: `<div id="areas-container" class="card" style="margin-top:80px;"></div>`
+  },
+  '4-tlf3000-1': {
+    title: '4 TLF3000 1',
+    content: `<div id="areas-container" class="card" style="margin-top:80px;"></div>`
+  },
+  '5-hlf20-1': {
+    title: '5 HLF20 1',
+    content: `<div id="areas-container" class="card" style="margin-top:80px;"></div>`
+  },
+  'gwg': {
+    title: 'GWG',
+    content: `<div id="areas-container"></div>`
+  },
+  'AGW': {
+    title: 'AGW',
+    content: `<div class="card center-col">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-black" onclick="navigate('hauptmenu')">Hauptmenu</button>
+      </div>
+      <h1 class="page-title">AGW</h1>
+      <div class="page-buttons" style="margin-bottom:18px">
+        <button class="btn btn-grey" onclick="navigate('lager-hauptwache-container')">Lager AGW</button>
+        <button class="btn btn-grey" onclick="navigate('silschede')">Silschede</button>
+        <button class="btn btn-grey" onclick="navigate('liste-pa')">PA</button>
+        <button class="btn btn-grey" onclick="navigate('liste-atemluftflaschen')">Atemluftflaschen</button>
+        <button class="btn btn-grey" onclick="navigate('liste-atemanschluesse')">Atemanschlüsse</button>
+        <button class="btn btn-grey" onclick="navigate('liste-fluchthauben')">Fluchthauben</button>
+        <button class="btn btn-grey" onclick="navigate('liste-technikflaschen')">Technikflaschen</button>
+        <button class="btn btn-grey" onclick="navigate('liste-sicherheitstrupptaschen')">Sicherheitstrupptaschen</button>
+        <button class="btn btn-grey" onclick="navigate('liste-erk-geraete')">ERK Geräte</button>
+        <button class="btn btn-grey" onclick="navigate('liste-abek-filter')">ABEK Filter</button>
+        <button class="btn btn-grey" onclick="navigate('csa')">CSA</button>
+        <button class="btn btn-grey" onclick="navigate('messgeraete')">Messgeräte</button>
+        <button class="btn btn-red-black" onclick="navigate('atemschutzeinsatz')">Atemschutzeinsatz</button>
+      </div>
+      <button class="btn btn-purple" onclick="document.getElementById('modal-root').style.display='flex'">Ressource hinzufügen</button>
+      <div class="small-footer" style="margin-top:18px;text-align:center;color:#666;font-size:0.9rem">
+        <span class="meta-muted">Automatisches Speichern aktiv. Änderungen werden sofort gesichert.</span>
+      </div>
+    </div>`
+  },
+  'loeschgruppe-voerde': {
+    title: 'Löschgruppe Voerde',
+    content: '' // Rendered by renderLoeschgruppeVoerdePage
+  },
+  'loeschzug-milspe': {
+    title: 'Löschzug Milspe',
+    content: `<div class="card" style="margin-top:80px;">
+      <div class="page-title-row">
+        <strong>Löschzug Milspe</strong>
+        <div style="margin-left:auto">
+          <button class="btn btn-small" id="vehicle-edit-btn">Fahrzeuge bearbeiten</button>
+        </div>
+      </div>
+      <div id="vehicle-btns" style="display:flex;gap:12px;flex-wrap:wrap;margin:24px 0 0 0"></div>
+    </div>`
+  },
+  'loeschgruppe-kuelchen': {
+    title: 'Löschgruppe Külchen',
+    content: '' // Rendered by renderLoeschgruppeKuelchenPage
+  },
+  'loeschgruppe-rueggeberg': {
+    title: 'Löschgruppe Rüggeberg',
+    content: '' // Rendered by renderLoeschgruppeRueggebergPage
+  },
+  'loeschgruppe-oberbauer': {
+    title: 'Löschgruppe Oberbauer',
+    content: '' // Rendered by renderLoeschgruppeOberbauerPage
+  },
+  'klutertbad': {
+    title: 'Klutertbad',
+    content: `<h1 class="page-title">Klutertbad</h1>`
+  }
+
+};
+// Auto-register vehicle pages from VEHICLE_LIST so each vehicle button opens an areas view
+(function registerVehiclePages() {
+  try {
+    const list = Array.isArray(window.VEHICLE_LIST) ? window.VEHICLE_LIST : [];
+    list.forEach(([title, file]) => {
+      if (!file) return;
+      const key = String(file).replace(/\.html$/i, '');
+      if (!window.pages[key]) {
+        window.pages[key] = {
+          title: title || key,
+          content: `<div id="areas-container" class="card" style="margin-top:80px;"></div>`
+        };
+      }
+    });
+  } catch (_) {}
+})();
+// Use area logic from areas.js; do not override here
+
+// Simple SPA router
+function navigate(page) {
+  if (!window.pages[page]) page = 'hauptmenu';
+  window.location.hash = '#' + page;
+  renderPage(page);
+  // Call setupGlobalSearch after navigation
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+}
+// --- Overview (Übersicht) helpers ---
+function renderOverviewVehicles() {
+  const container = document.getElementById('overview-vehicles');
+  if (!container) return;
+  container.innerHTML = '';
+  const items = [];
+  // Built-in vehicles from VEHICLE_LIST
+  (Array.isArray(window.VEHICLE_LIST) ? window.VEHICLE_LIST : []).forEach(([title, file]) => {
+    if (!file) return;
+    const key = String(file).replace(/\.html$/i, '');
+    items.push({ label: title, page: key });
+  });
+  // Custom vehicles across all groups
+  try {
+    VEHICLE_GROUP_PAGES.forEach(g => {
+      getCustomVehiclesForGroup(g).forEach(v => {
+        items.push({ label: v.label, page: v.slug });
+      });
+    });
+  } catch (_) {}
+  // Dedupe by label (keep first occurrence)
+  const seen = new Set();
+  items.forEach(it => {
+    if (seen.has(it.label)) return;
+    seen.add(it.label);
+    const btn = document.createElement('button');
+    btn.textContent = it.label;
+    btn.className = 'btn btn-black vehicle-btn';
+    btn.addEventListener('click', () => navigate(it.page));
+    container.appendChild(btn);
+  });
+  // Nudge search to index buttons
+  const searchInput = document.getElementById('global-search');
+  if (searchInput) {
+    const event = new Event('input', { bubbles: true });
+    searchInput.dispatchEvent(event);
+  }
+}
+
+function collectAllVehicles() {
+  const items = [];
+  // built-ins
+  (Array.isArray(window.VEHICLE_LIST) ? window.VEHICLE_LIST : []).forEach(([title, file]) => {
+    if (!file) return;
+    const pageKey = String(file).replace(/\.html$/i, '');
+    const pageFile = pageKey + '.html';
+    items.push({ label: title, pageKey, pageFile });
+  });
+  // customs
+  try {
+    VEHICLE_GROUP_PAGES.forEach(g => {
+      getCustomVehiclesForGroup(g).forEach(v => {
+        const pageKey = v.slug;
+        const pageFile = v.slug + '.html';
+        items.push({ label: v.label, pageKey, pageFile });
+      });
+    });
+  } catch (_) {}
+  // dedupe by label then by pageKey
+  const seen = new Set();
+  const out = [];
+  items.forEach(it => {
+    const key = it.label + '|' + it.pageKey;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(it);
+  });
+  // sort by label naturally
+  out.sort((a,b) => (a.label||'').localeCompare(b.label||'', 'de')); 
+  return out;
+}
+
+function getAssignmentsForPage(pageFile) {
+  let moveables = [];
+  try { moveables = JSON.parse(localStorage.getItem('moveables_' + pageFile) || '[]'); } catch (e) {}
+  const buckets = { PA: [], FL: [], FH: [], TF: [], Si: [], ERK: [], Other: [] };
+  moveables.forEach(m => {
+    const label = (m.label || '').trim();
+    if (!label) return;
+    if (label.startsWith('PA ')) buckets.PA.push(label);
+    else if (label.startsWith('FL ')) buckets.FL.push(label);
+    else if (label.startsWith('FH ')) buckets.FH.push(label);
+    else if (label.startsWith('TF ')) buckets.TF.push(label);
+    else if (label.startsWith('Si ')) buckets.Si.push(label);
+    else if (label === 'ERK') buckets.ERK.push(label);
+    else buckets.Other.push(label);
+  });
+  // For ERK show counts compactly later
+  // Sort numerically where applicable
+  const numSort = (a,b) => {
+    const na = parseInt(a.replace(/[^0-9]/g,''),10); 
+    const nb = parseInt(b.replace(/[^0-9]/g,''),10);
+    if (isNaN(na) || isNaN(nb)) return (a||'').localeCompare(b||'', 'de');
+    return na-nb;
+  };
+  ['PA','FL','FH','TF','Si'].forEach(k => buckets[k].sort(numSort));
+  buckets.Other.sort((a,b)=>a.localeCompare(b,'de'));
+  return buckets;
+}
+
+function renderInventoryOverview() {
+  const container = document.getElementById('inventory-table-container');
+  if (!container) return;
+  // Build per-vehicle sections
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(260px, 1fr))';
+  grid.style.gap = '12px';
+  grid.style.width = '100%';
+  const vehicles = collectAllVehicles();
+  vehicles.forEach(v => {
+    const buckets = getAssignmentsForPage(v.pageFile);
+    const card = document.createElement('div');
+    card.style.border = '1px solid #ddd';
+    card.style.borderRadius = '10px';
+    card.style.background = '#fff';
+    card.style.padding = '10px 12px';
+    card.style.breakInside = 'avoid-page';
+    const title = document.createElement('div');
+    title.textContent = v.label;
+    title.style.fontWeight = '700';
+    title.style.textDecoration = 'underline';
+    title.style.marginBottom = '8px';
+    card.appendChild(title);
+    const rows = [
+      ['PA', buckets.PA],
+      ['FL', buckets.FL],
+      ['FH', buckets.FH],
+      ['TF', buckets.TF],
+      ['Si', buckets.Si],
+      ['ERK', buckets.ERK],
+      ['Sonstiges', buckets.Other]
+    ];
+    rows.forEach(([label, list]) => {
+      const arr = Array.isArray(list) ? list : [];
+      let hasContent = false;
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'flex-start';
+      row.style.gap = '8px';
+      row.style.margin = '2px 0';
+      const k = document.createElement('div');
+      k.textContent = label + ':';
+      k.style.minWidth = '88px';
+      k.style.fontWeight = '600';
+      const vDiv = document.createElement('div');
+      vDiv.style.display = 'flex';
+      vDiv.style.flexWrap = 'wrap';
+      vDiv.style.gap = '6px';
+
+      if (label === 'ERK') {
+        const count = arr.length;
+        if (count > 0) {
+          const chip = document.createElement('span');
+          chip.textContent = `ERK × ${count}`;
+          chip.style.display = 'inline-block';
+          chip.style.padding = '2px 6px';
+          chip.style.border = '1px solid #bbb';
+          chip.style.borderRadius = '6px';
+          chip.style.background = '#f7f7f7';
+          chip.style.fontSize = '0.9em';
+          vDiv.appendChild(chip);
+          hasContent = true;
+        }
+      } else {
+        arr.forEach(txt => {
+          const chip = document.createElement('span');
+          chip.textContent = txt;
+          chip.style.display = 'inline-block';
+          chip.style.padding = '2px 6px';
+          chip.style.border = '1px solid #bbb';
+          chip.style.borderRadius = '6px';
+          chip.style.background = '#f7f7f7';
+          chip.style.fontSize = '0.9em';
+          vDiv.appendChild(chip);
+        });
+        hasContent = arr.length > 0;
+      }
+
+      if (hasContent) {
+        row.appendChild(k);
+        row.appendChild(vDiv);
+        card.appendChild(row);
+      }
+    });
+    grid.appendChild(card);
+  });
+  container.appendChild(grid);
+}
+// --- Render Löschgruppe Voerde Page ---
+function renderLoeschgruppeVoerdePage() {
+  const main = document.getElementById('app-main');
+  main.innerHTML = `
+    <div class="card" style="margin-top:80px;">
+      <div id="vehicle-btns-voerde" class="page-buttons">
+        <button class="btn btn-black vehicle-btn" onclick="navigate('2-lf10-1')">2 LF10 1</button>
+        <button class="btn btn-black vehicle-btn" onclick="navigate('2-rw-1')">2 RW 1</button>
+      </div>
+    </div>
+  `;
+  enhanceVehicleSection('vehicle-btns-voerde', 'loeschgruppe-voerde');
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+}
+
+function renderHeader(page) {
+  const el = document.getElementById('app-header');
+  el.innerHTML = `
+    <div class="left-controls">
+      <button class="btn btn-small" onclick="navigate('uebersicht')">Übersicht</button>
+      ${page !== 'hauptmenu' && page !== 'index' ? `<button class="btn btn-black" id="btn-hauptmenu">Hauptmenu</button>` : ''}
+      <div class="meta" id="page-indicator">Seite: <strong id="current-page-name">${window.pages[page].title || ''}</strong></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="position:relative">
+        <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+        <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-small" id="btn-export">Backup download</button>
+        <button class="btn btn-small" id="btn-import">Restore backup</button>
+        <input type="file" id="import-file" style="display:none" accept=".json"/>
+      </div>
+    </div>
+  `;
+  // Add Hauptmenu button logic if not on hauptmenu or index
+  if (page !== 'hauptmenu' && page !== 'index') {
+    setTimeout(() => {
+      const btn = document.getElementById('btn-hauptmenu');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          navigate('hauptmenu');
+        });
+      }
+    }, 0);
+  }
+  // Setup global search after header is rendered
+  if (typeof window.setupGlobalSearch === 'function') {
+    window.setupGlobalSearch();
+  }
+}
+
+function renderPage(page) {
+  renderHeader(page);
+  const main = document.getElementById('app-main');
+  const pageObj = window.pages[page];
+  if (!pageObj) return;
+  if (page === 'hauptmenu') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">Hauptmenu</h1>
+        <div class="main-grid" style="margin-bottom:18px">
+          <button class="btn btn-grey" onclick="navigate('AGW')">AGW</button>
+          <button class="btn btn-grey" onclick="navigate('hauptwache')">Hauptwache</button>
+          <button class="btn btn-grey" onclick="navigate('loeschzug-milspe')">Löschzug Milspe (LZ 1)</button>
+          <button class="btn btn-grey" onclick="navigate('loeschgruppe-voerde')">Löschgruppe Voerde (LG 2)</button>
+          <button class="btn btn-grey" onclick="navigate('loeschgruppe-oberbauer')">Löschgruppe Oberbauer (LG 3)</button>
+          <button class="btn btn-grey" onclick="navigate('loeschgruppe-rueggeberg')">Löschgruppe Rüggeberg (LG 4)</button>
+          <button class="btn btn-grey" onclick="navigate('loeschgruppe-kuelchen')">Löschgruppe Külchen (LG 5)</button>
+          <button class="btn btn-grey" onclick="navigate('klutertbad')">Klutertbad</button>
+        </div>
+        <div class="small-footer" style="margin-top:18px;text-align:center;color:#666;font-size:0.9rem">
+          <span class="meta-muted">Automatisches Speichern aktiv. Änderungen werden sofort gesichert.</span>
+        </div>
+      </div>`;
+    return;
+  } else if (page === 'hauptwache') {
+    renderHauptwachePage();
+    return;
+  } else if (page === 'loeschzug-milspe') {
+    renderLoeschzugMilspePage();
+    return;
+  } else if (page === 'loeschgruppe-voerde') {
+    renderLoeschgruppeVoerdePage();
+    return;
+  } else if (page === 'loeschgruppe-rueggeberg') {
+    renderLoeschgruppeRueggebergPage();
+    return;
+  } else if (page === 'loeschgruppe-oberbauer') {
+    renderLoeschgruppeOberbauerPage();
+    return;
+  } else if (page === 'loeschgruppe-kuelchen') {
+    renderLoeschgruppeKuelchenPage();
+    return;
+  } else if (page === 'liste-pa') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderPAListePage();
+  } else if (page === 'liste-atemluftflaschen') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderFLListePage();
+  } else if (page === 'liste-technikflaschen') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderTFListePage();
+  } else if (page === 'liste-fluchthauben') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderFHListePage();
+  } else if (page === 'liste-sicherheitstrupptaschen') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderSIListePage();
+  } else if (page === 'liste-erk-geraete') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderERKListePage();
+  } else if (page === 'uebersicht') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">Übersicht</h1>
+        <div style=\"width:100%;max-width:1200px;margin-top:24px\">
+          <div style=\"display:flex;align-items:center;gap:12px;justify-content:space-between\">
+            <h2 class=\"page-title\" style=\"margin:0\">Inventar-Übersicht (druckbar)</h2>
+            <button id=\"btn-print-inventory\" class=\"btn btn-grey\" title=\"Druckansicht öffnen\">Drucken</button>
+          </div>
+          <div id=\"inventory-table-container\" style=\"width:100%;overflow:auto;margin-top:8px\"></div>
+        </div>
+        <div class=\"small-footer\" style=\"margin-top:18px;text-align:center;color:#666;font-size:0.9rem\">
+          <span class=\"meta-muted\">Automatisches Speichern aktiv. Änderungen werden sofort gesichert.</span>
+        </div>
+      </div>
+    `;
+    renderInventoryOverview();
+    const printBtn = document.getElementById('btn-print-inventory');
+    if (printBtn) printBtn.addEventListener('click', () => window.print());
+  } else {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    // If this page contains an areas container, render vehicle areas
+    if (document.getElementById('areas-container')) {
+      renderVehiclePage(page);
+    }
+  }
+}
+// --- Vehicle page renderer: builds areas and restores assigned moveables ---
+function renderVehiclePage(page) {
+  const mainContainer = document.getElementById('areas-container');
+  if (!mainContainer) return;
+  // Define current page file for areas.js dblclick logic
+  const pageFile = page.endsWith('.html') ? page : page + '.html';
+  window.currentPageFile = pageFile;
+  // Build areas
+  if (typeof window.createAllAreas === 'function') {
+    // Clear and recreate areas
+    mainContainer.innerHTML = '';
+    window.createAllAreas(mainContainer);
+  }
+  // Restore assigned moveables for this page
+  let moveables = [];
+  try { moveables = JSON.parse(localStorage.getItem('moveables_' + pageFile) || '[]'); } catch (e) {}
+  moveables.forEach(m => {
+    const areaEl = (typeof window.getArea === 'function' ? window.getArea(m.areaId) : null) ||
+                   mainContainer.querySelector(`.moveable-area[data-area-id="${m.areaId}"]`);
+    if (!areaEl) return;
+    const btn = document.createElement('button');
+    btn.textContent = m.label || 'Item';
+    btn.className = m.className || 'btn';
+    if (m.style) btn.setAttribute('style', m.style);
+    areaEl.appendChild(btn);
+    if (typeof window.makeButtonMoveable === 'function') {
+      window.makeButtonMoveable(btn, m.areaId);
+    }
+  });
+}
+// --- Example: render FL and TF pages with moveable buttons and sidebar ---
+function renderFLListePage() {
+  // ...existing code...
+}
+
+function renderTFListePage() {
+  // Correct TF numbers and styles from original HTML
+  const tfNumbers = [117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136];
+  let assignedTFLabels = [];
+  const vehiclePages = [
+    '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+  ];
+  vehiclePages.forEach(page => {
+    const moveablesKey = 'moveables_' + page;
+    let moveables = [];
+    try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+    moveables.forEach(m => {
+      if (m.areaId === 'technikflaschen' && m.label && m.label.startsWith('TF ')) {
+        assignedTFLabels.push(m.label.trim());
+          }
+    });
+  });  
+
+  // ...existing code...
+  let removedTFs = [];
+  try { removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch (e) {}
+  const unassignedTFNumbers = tfNumbers.filter(num => {
+    const label = `TF ${num}`;
+    return !assignedTFLabels.includes(label) && !removedTFs.includes(label);
+  });
+  const container = document.getElementById('tf-btn-list');
+  if (container) container.innerHTML = '';
+  let tfBtnListArea = container;
+  if (container && !container.classList.contains('moveable-area')) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'moveable-area';
+    wrapper.dataset.areaId = 'tf-btn-list';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    tfBtnListArea = wrapper;
+  }
+  if (window.registerArea) window.registerArea('tf-btn-list', tfBtnListArea);
+  if (window.renderMoveableButtons) {
+    window.renderMoveableButtons(container, unassignedTFNumbers, 'TF', 'tf-btn', function(btn, num) {
+      btn.style.border = '2px solid #176a2a';
+      btn.style.color = '#fff';
+      btn.style.background = '#176a2a';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'tf-btn-list');
+    });
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+  
+  const technikflaschenArea = document.querySelector('.moveable-area[data-area-id="technikflaschen"] .area-content');
+  if (technikflaschenArea) technikflaschenArea.innerHTML = '';
+  if (technikflaschenArea && window.renderMoveableButtons) {
+    const removedButNotAssigned = removedTFs.filter(label => !assignedTFLabels.includes(label));
+    const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('TF ', ''), 10)).filter(n => !isNaN(n));
+    removedNumbers.forEach(num => {
+      const btn = document.createElement('button');
+      btn.textContent = 'TF ' + num;
+      btn.className = 'btn tf-btn';
+      btn.style.border = '2px solid #176a2a';
+      btn.style.color = '#fff';
+      btn.style.background = '#176a2a';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.addEventListener('dblclick', function(e) {
+        let removedTFs = [];
+        try { removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch (e) {}
+        const label = 'TF ' + num;
+        const idx = removedTFs.indexOf(label);
+        if (idx !== -1) {
+          removedTFs.splice(idx, 1);
+          localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removedTFs));
+          renderTFListePage();
+        }
+      });
+      technikflaschenArea.appendChild(btn);
+    });
+    // After rendering, re-dispatch input event on search bar to update search results
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    
+    }
+  }
+}
+// --- SPA-specific: render Fluchthauben (FH) list page ---
+function renderFHListePage() {
+  // Numbers from original liste-fluchthauben.html
+  const fhNumbers = [320,322,339,337,355,358,351,350,356,346,347,358,317,335,330,336,340,352,302,303,304,305,306,307,308,310,311,314,315,316,317,319,321,323,325,324,326,327,328,329,331,332,333,334,338,341,343,345,344,348,349,354,357,301,315];
+  let assignedFHLabels = [];
+  const vehiclePages = [
+    '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+  ];
+  vehiclePages.forEach(page => {
+    const moveablesKey = 'moveables_' + page;
+    let moveables = [];
+    try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+    moveables.forEach(m => {
+      // Accept both 'fluchthauben' (SPA) and legacy 'fh' area ids
+      if ((m.areaId === 'fluchthauben' || m.areaId === 'fh') && m.label && m.label.startsWith('FH ')) {
+        assignedFHLabels.push(m.label.trim());
+      }
+    });
+  });
+
+  let removedFHs = [];
+  try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
+
+  const unassignedFHNumbers = fhNumbers.filter(num => {
+    const label = `FH ${num}`;
+    return !assignedFHLabels.includes(label) && !removedFHs.includes(label);
+  });
+
+  const container = document.getElementById('fh-btn-list');
+  if (container) container.innerHTML = '';
+  let fhBtnListArea = container;
+  if (container && !container.classList.contains('moveable-area')) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'moveable-area';
+    wrapper.dataset.areaId = 'fh-btn-list';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    fhBtnListArea = wrapper;
+  }
+  if (window.registerArea) window.registerArea('fh-btn-list', fhBtnListArea);
+
+  if (window.renderMoveableButtons) {
+    window.renderMoveableButtons(container, unassignedFHNumbers, 'FH', 'fh-btn', function(btn, num) {
+      btn.style.border = '2px solid #bfa100';
+      btn.style.color = '#bfa100';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fh-btn-list');
+    });
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+
+  // Optional: show removed-but-not-assigned FH items in the Fluchthauben area
+  const fhArea = document.querySelector('.moveable-area[data-area-id="fluchthauben"] .area-content');
+  if (fhArea) fhArea.innerHTML = '';
+  if (fhArea) {
+    const removedButNotAssigned = removedFHs.filter(label => !assignedFHLabels.includes(label));
+    const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('FH ', ''), 10)).filter(n => !isNaN(n));
+    removedNumbers.forEach(num => {
+      const btn = document.createElement('button');
+      btn.textContent = 'FH ' + num;
+      btn.className = 'btn fh-btn';
+      btn.style.border = '2px solid #bfa100';
+      btn.style.color = '#bfa100';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.addEventListener('dblclick', function() {
+        let removedFHs = [];
+        try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
+        const label = 'FH ' + num;
+        const idx = removedFHs.indexOf(label);
+        if (idx !== -1) {
+          removedFHs.splice(idx, 1);
+          localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removedFHs));
+          renderFHListePage();
+        }
+      });
+      fhArea.appendChild(btn);
+    });
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+}
+// --- SPA-specific: render ERK Geräte list page ---
+function renderERKListePage() {
+  // From standalone liste-erk-geraete.html: 20 ERK items (no numbers)
+  const erkTotal = 20;
+  // Count how many ERKs are currently assigned across vehicle pages
+  const vehiclePages = [
+    '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+  ];
+  let assignedCount = 0;
+  vehiclePages.forEach(page => {
+    const moveablesKey = 'moveables_' + page;
+    let moveables = [];
+    try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+    moveables.forEach(m => {
+      if (m.areaId === 'erk' && m.label === 'ERK') {
+        assignedCount += 1;
+      }
+    });
+  });
+
+  // Track removals from the list as a multiset using repeated 'ERK' entries
+  let removedERKs = [];
+  try { removedERKs = JSON.parse(localStorage.getItem('removed_erks_liste_erk_geraete') || '[]'); } catch (e) {}
+  const removedCount = Array.isArray(removedERKs) ? removedERKs.length : 0;
+
+  // Compute how many to render in the list
+  const toRender = Math.max(0, erkTotal - assignedCount - removedCount);
+  const labels = Array.from({ length: toRender }, () => 'ERK');
+
+  const container = document.getElementById('erk-btn-list');
+  if (container) container.innerHTML = '';
+  let erkBtnListArea = container;
+  if (container && !container.classList.contains('moveable-area')) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'moveable-area';
+    wrapper.dataset.areaId = 'erk-btn-list';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    erkBtnListArea = wrapper;
+  }
+  if (window.registerArea) window.registerArea('erk-btn-list', erkBtnListArea);
+
+  labels.forEach(() => {
+    const btn = document.createElement('button');
+    btn.textContent = 'ERK';
+    btn.className = 'btn erk-btn';
+    btn.style.border = '2px solid #1976d2';
+    btn.style.color = '#fff';
+    btn.style.background = '#1976d2';
+    btn.style.fontWeight = 'bold';
+    btn.style.margin = '6px';
+    btn.style.minWidth = '54px';
+    btn.style.minHeight = '44px';
+    btn.style.fontSize = '1.1rem';
+    if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'erk-btn-list');
+    btn.addEventListener('click', function() { showAssignmentSidebar(btn); });
+    container.appendChild(btn);
+  });
+
+  const searchInput = document.getElementById('global-search');
+  if (searchInput) {
+    const event = new Event('input', { bubbles: true });
+    searchInput.dispatchEvent(event);
+  }
+
+  // Optional: show removed-but-not-assigned ERKs in the ERK area for restoration
+  const erkArea = document.querySelector('.moveable-area[data-area-id="erk"] .area-content');
+  if (erkArea) erkArea.innerHTML = '';
+  if (erkArea) {
+    // Render one button per removed entry
+    (Array.isArray(removedERKs) ? removedERKs : []).forEach(() => {
+      const btn = document.createElement('button');
+      btn.textContent = 'ERK';
+      btn.className = 'btn erk-btn';
+      btn.style.border = '2px solid #1976d2';
+      btn.style.color = '#fff';
+      btn.style.background = '#1976d2';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.addEventListener('dblclick', function() {
+        let cur = [];
+        try { cur = JSON.parse(localStorage.getItem('removed_erks_liste_erk_geraete') || '[]'); } catch (e) {}
+        const idx = cur.indexOf('ERK');
+        if (idx !== -1) {
+          cur.splice(idx, 1);
+          localStorage.setItem('removed_erks_liste_erk_geraete', JSON.stringify(cur));
+          renderERKListePage();
+        }
+      });
+      erkArea.appendChild(btn);
+    });
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+}
+// --- SPA-specific: render Sicherheitstrupptaschen (Si) list page ---
+function renderSIListePage() {
+  // Numbers from original liste-sicherheitstrupptaschen.html
+  const siNumbers = [305, 302, 304, 303, 306, 301];
+  let assignedSiLabels = [];
+  // Vehicle pages to scan for assigned moveables
+  const vehiclePages = [
+    '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+  ];
+  vehiclePages.forEach(page => {
+    const moveablesKey = 'moveables_' + page;
+    let moveables = [];
+    try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+    moveables.forEach(m => {
+      // In SPA, the target area for Sicherheitstrupptasche is 'sicherheitstrupptasche'
+      if (m.areaId === 'sicherheitstrupptasche' && m.label && m.label.startsWith('Si ')) {
+        assignedSiLabels.push(m.label.trim());
+      }
+    });
+  });
+
+  // Exclude Sis that the user removed from the list page
+  let removedSis = [];
+  try { removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch (e) {}
+
+  // Only show unassigned and not-removed numbers
+  const unassignedSiNumbers = siNumbers.filter(num => {
+    const label = `Si ${num}`;
+    return !assignedSiLabels.includes(label) && !removedSis.includes(label);
+  });
+
+  // Render into the list container
+  const container = document.getElementById('si-btn-list');
+  if (container) container.innerHTML = '';
+  // Register home area for Si list for drag/dblclick home logic
+  let siBtnListArea = container;
+  if (container && !container.classList.contains('moveable-area')) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'moveable-area';
+    wrapper.dataset.areaId = 'si-btn-list';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    siBtnListArea = wrapper;
+  }
+  if (window.registerArea) window.registerArea('si-btn-list', siBtnListArea);
+
+  if (window.renderMoveableButtons) {
+    window.renderMoveableButtons(container, unassignedSiNumbers, 'Si', 'si-btn', function(btn, num) {
+      // Apply colors consistent with original page
+      btn.style.border = '2px solid #bfff00';
+      btn.style.color = '#bfff00';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'si-btn-list');
+    });
+    // Nudge global search to index new DOM
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+
+  // Render removed-but-not-assigned Sis in the Sicherheitstrupptasche area if present (on any page with that area)
+  const siArea = document.querySelector('.moveable-area[data-area-id="sicherheitstrupptasche"] .area-content');
+  if (siArea) siArea.innerHTML = '';
+  if (siArea) {
+    const removedButNotAssigned = removedSis.filter(label => !assignedSiLabels.includes(label));
+    const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('Si ', ''), 10)).filter(n => !isNaN(n));
+    removedNumbers.forEach(num => {
+      const btn = document.createElement('button');
+      btn.textContent = 'Si ' + num;
+      btn.className = 'btn si-btn';
+      btn.style.border = '2px solid #bfff00';
+      btn.style.color = '#bfff00';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.addEventListener('dblclick', function() {
+        let removedSis = [];
+        try { removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch (e) {}
+        const label = 'Si ' + num;
+        const idx = removedSis.indexOf(label);
+        if (idx !== -1) {
+          removedSis.splice(idx, 1);
+          localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
+          renderSIListePage();
+        }
+      });
+      siArea.appendChild(btn);
+    });
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+}
+// --- SPA-specific: render PA list page ---
+function renderPAListePage() {
+  // PA numbers provided by user
+  const paNumbers = [29,62,36,15,47,60,20,43,26,19,50,31,21,8,46,24,48,12,61,57,23,34,44,54,39,63,55,22,66,58,18,1,17,25,11,4,14,28,3,9,64,7,10,59,49,45,16,32,56,33,2,42,41,65,38,6,5,27,30];
+  let assignedPALabels = [];
+  const vehiclePages = [
+    '1-hlf20-1','1-hlf20-2','1-hlf20-3','1-dlk23-1','1-tlf4000-1',
+    '2-lf10-1','2-rw-1','3-hlf20-1','3-lfkat20','4-lf10-1','4-tlf3000-1','5-hlf20-1','gwg'
+  ];
+  const page = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+  let moveables = [];
+  try { moveables = JSON.parse(localStorage.getItem('moveables_' + page) || '[]'); } catch (e) {}
+  moveables.forEach(m => {
+    if (m.areaId === 'pa' && m.label && m.label.startsWith('PA ')) {
+      assignedPALabels.push(m.label.trim());
+    }
+  });
+  const paNumbersSet = new Set(paNumbers.map(n => `PA ${n}`));
+  const assignedSet = new Set(assignedPALabels);
+  let removedPAs = [];
+  try { removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste-pa') || '[]'); } catch (e) {}
+  const unassignedPANumbers = paNumbers.filter(n => {
+    const label = `PA ${n}`;
+    return !assignedSet.has(label) && !removedPAs.includes(label);
+  });
+  const container = document.getElementById('pa-btn-list');
+  if (container) container.innerHTML = '';
+  let paBtnListArea = container;
+  if (container && !container.classList.contains('moveable-area')) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'moveable-area';
+    wrapper.dataset.areaId = 'pa-btn-list';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    paBtnListArea = wrapper;
+  }
+  if (window.registerArea) window.registerArea('pa-btn-list', paBtnListArea);
+  unassignedPANumbers.forEach(num => {
+    const btn = document.createElement('button');
+    btn.textContent = `PA ${num}`;
+    btn.className = 'pa-btn';
+    btn.style.border = '2px solid #888';
+    btn.style.color = '#bbb';
+    btn.style.background = '#111';
+    btn.style.fontWeight = 'bold';
+    btn.style.margin = '6px';
+    btn.style.minWidth = '54px';
+    btn.style.minHeight = '44px';
+    btn.style.fontSize = '1.1rem';
+    if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'pa-btn-list');
+    btn.addEventListener('click', function() { showAssignmentSidebar(btn); });
+    container.appendChild(btn);
+  });
+  const paArea = document.querySelector('.moveable-area[data-area-id="pa"] .area-content');
+  if (paArea) paArea.innerHTML = '';
+  if (paArea) {
+    const removedButNotAssigned = removedPAs.filter(label => !assignedSet.has(label));
+    const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('PA ', ''), 10)).filter(n => !isNaN(n));
+    removedNumbers.forEach(num => {
+      const btn = document.createElement('button');
+      btn.textContent = 'PA ' + num;
+      btn.className = 'pa-btn';
+      btn.style.border = '2px solid #888';
+      btn.style.color = '#bbb';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.addEventListener('dblclick', function(e) {
+        let removedPAs = [];
+        try { removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste-pa') || '[]'); } catch (e) {}
+        const label = 'PA ' + num;
+        const idx = removedPAs.indexOf(label);
+        if (idx !== -1) {
+          removedPAs.splice(idx, 1);
+          localStorage.setItem('removed_pas_liste-pa', JSON.stringify(removedPAs));
+          renderPAListePage();
+        }
+      });
+      paArea.appendChild(btn);
+    });
+  }
+}
+// Listen for hash changes (routing)
+window.addEventListener('hashchange', function() {
+  const page = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+  renderPage(page);
+});
+// Initial load
+window.addEventListener('DOMContentLoaded', function() {
+  const page = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+  // Register any custom vehicle pages saved previously
+  try {
+    VEHICLE_GROUP_PAGES.forEach(g => {
+      getCustomVehiclesForGroup(g).forEach(registerCustomVehiclePage);
+    });
+  } catch (_) {}
+  renderPage(page);
+  window.navigate = navigate; // Expose for inline onclick
+});
+  

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>Löschzug Milspe</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="left-controls">
+      <button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+      <button class="btn btn-black" id="btn-hauptmenu" onclick="window.location.href='index.html'">Hauptmenu</button>
+      <div class="meta" id="page-indicator"><span class="page-title">Löschzug Milspe</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="position:relative">
+        <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+        <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-small" id="btn-export">Backup download</button>
+        <button class="btn btn-small" id="btn-import">Restore backup</button>
+        <input type="file" id="import-file" style="display:none" accept=".json"/>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="card" style="margin-top:80px;">
+      <div class="page-title-row">
+        <strong>Löschzug Milspe</strong>
+        <div style="margin-left:auto">
+          <button class="btn btn-small" id="vehicle-edit-btn">Fahrzeuge bearbeiten</button>
+        </div>
+      </div>
+      <div id="vehicle-btns" style="display:flex;gap:12px;flex-wrap:wrap;margin:24px 0 0 0"></div>
+    </div>
+  </main>
+
+  <script src="buttons.js"></script>
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof setupGlobalSearch === 'function') setupGlobalSearch();
+
+      // Only show these vehicles
+      const allowed = [
+        '1-hlf20-2',
+        '3-lfkats20',
+        'gwg'
+      ].map(s => s.toLowerCase());
+
+      function matchesAllowed(text, file) {
+        const t = (text || '').toLowerCase();
+        const f = (file || '').toLowerCase();
+        const norm = t.replace(/[\s\-\._]+/g, '');
+        return allowed.some(a => t.includes(a) || f.includes(a) || norm.includes(a.replace(/[-_.]/g, '')));
+      }
+
+      function renderFiltered() {
+        const container = document.getElementById('vehicle-btns');
+        if (!container) return;
+
+        // Use renderVehicleButtons if available, then filter
+        if (typeof window.renderVehicleButtons === 'function') {
+          container.innerHTML = '';
+          window.renderVehicleButtons(container);
+          setTimeout(function() {
+            Array.from(container.querySelectorAll('button')).forEach(function(b) {
+              const text = (b.textContent || '').trim();
+              const df = b.getAttribute('data-file') || '';
+              if (!matchesAllowed(text, df)) b.remove();
+            });
+          }, 60);
+          return;
+        }
+
+        // Fallback: use VEHICLE_LIST if available
+        if (window.VEHICLE_LIST && Array.isArray(window.VEHICLE_LIST)) {
+          container.innerHTML = '';
+          window.VEHICLE_LIST.forEach(function(item) {
+            const title = item[0] || '';
+            const file = item[1] || '';
+            if (!matchesAllowed(title, file)) return;
+            const btn = document.createElement('button');
+            btn.textContent = title;
+            btn.className = 'btn btn-black vehicle-btn';
+            if (file) btn.addEventListener('click', function() { window.location.href = file; });
+            container.appendChild(btn);
+          });
+          return;
+        }
+
+        // try again shortly if neither is ready
+        setTimeout(renderFiltered, 60);
+      }
+
+      renderFiltered();
+
+      // Edit button logic
+      const editContainer = document.getElementById('vehicle-edit-btn');
+      if (editContainer) {
+        editContainer.innerHTML = '';
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Fahrzeuge bearbeiten';
+        editBtn.className = 'btn btn-small vehicleedit-btn';
+        editBtn.addEventListener('click', function() {
+          if (window.openVehicleEditor) return window.openVehicleEditor();
+          alert('Vehicle editor not available');
+        });
+        editContainer.appendChild(editBtn);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Liste Fluchthauben</title>
+<link rel="stylesheet" href="style.css" />
+<script src="script.js"></script>
+<script src="buttons.js"></script>
+</head>
+<body>
+	<header>
+		<div class="left-controls">
+			<button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+			<button class="btn btn-black" id="btn-hauptmenu" onclick="window.location.href='index.html'">Hauptmenu</button>
+			<div class="meta" id="page-indicator"><span class="page-title">Liste Fluchthauben</span></div>
+		</div>
+		<div style="display:flex;align-items:center;gap:12px">
+			<div style="position:relative">
+				<input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+				<div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+			</div>
+			<div style="display:flex;gap:8px;align-items:center">
+				<button class="btn btn-small" id="btn-export">Backup download</button>
+				<button class="btn btn-small" id="btn-import">Restore backup</button>
+				<input type="file" id="import-file" style="display:none" accept=".json"/>
+			</div>
+		</div>
+	</header>
+	<main class="container">
+		<div class="card">
+			<div id="fh-btn-list"></div>
+		</div>
+	</main>
+	<script>
+		function renderFHLists() {
+			if (typeof setupGlobalSearch === 'function') setupGlobalSearch();
+			// FH numbers
+			const fhNumbers = [320,322,339,337,355,358,351,350,356,346,347,358,317,335,330,336,340,352,302,303,304,305,306,307,308,310,311,314,315,316,317,319,321,323,325,324,326,327,328,329,331,332,333,334,338,341,343,345,344,348,349,354,357,301,315];
+			let assignedFHLabels = [];
+			const vehiclePages = [
+				'1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+				'2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+			];
+			vehiclePages.forEach(page => {
+				const moveablesKey = 'moveables_' + page;
+				let moveables = [];
+				try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+				moveables.forEach(m => {
+					if (m.areaId === 'fh' && m.label && m.label.startsWith('FH ')) {
+						assignedFHLabels.push(m.label.trim());
+					}
+				});
+			});
+			// Also filter out FHs that have been removed from this page (persistently)
+			let removedFHs = [];
+			try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
+
+			// Only render unassigned FH buttons in the list
+			const unassignedFHNumbers = fhNumbers.filter(num => {
+				const label = `FH ${num}`;
+				return !assignedFHLabels.includes(label) && !removedFHs.includes(label);
+			});
+
+			// Render unassigned FHs in the list
+			const container = document.getElementById('fh-btn-list');
+			if (container) container.innerHTML = '';
+			// Register the fh-btn-list as a moveable area (for home logic)
+			let fhBtnListArea = container;
+			if (container && !container.classList.contains('moveable-area')) {
+				const wrapper = document.createElement('div');
+				wrapper.className = 'moveable-area';
+				wrapper.dataset.areaId = 'fh-btn-list';
+				container.parentNode.insertBefore(wrapper, container);
+				wrapper.appendChild(container);
+				fhBtnListArea = wrapper;
+			}
+			if (window.registerArea) window.registerArea('fh-btn-list', fhBtnListArea);
+			if (window.renderMoveableButtons) {
+				window.renderMoveableButtons(container, unassignedFHNumbers, 'FH', 'fh-btn', function(btn, num) {
+					btn.style.border = '2px solid #bfa100';
+					btn.style.color = '#bfa100';
+					btn.style.background = '#111';
+					btn.style.fontWeight = 'bold';
+					btn.style.margin = '6px';
+					btn.style.minWidth = '54px';
+					btn.style.minHeight = '44px';
+					btn.style.fontSize = '1.1rem';
+				});
+				// After rendering, re-dispatch input event on search bar to update search results
+				const searchInput = document.getElementById('global-search');
+				if (searchInput) {
+					const event = new Event('input', { bubbles: true });
+					searchInput.dispatchEvent(event);
+				}
+			}
+
+			// Render removed FHs in the fh area (if present on this page)
+			const fhArea = document.querySelector('.moveable-area[data-area-id="fh"] .area-content');
+			if (fhArea) fhArea.innerHTML = '';
+			if (fhArea && window.renderMoveableButtons) {
+				const removedButNotAssigned = removedFHs.filter(label => !assignedFHLabels.includes(label));
+				const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('FH ', ''), 10)).filter(n => !isNaN(n));
+				removedNumbers.forEach(num => {
+					const btn = document.createElement('button');
+					btn.textContent = 'FH ' + num;
+					btn.className = 'btn fh-btn';
+					btn.style.border = '2px solid #bfa100';
+					btn.style.color = '#bfa100';
+					btn.style.background = '#111';
+					btn.style.fontWeight = 'bold';
+					btn.style.margin = '6px';
+					btn.style.minWidth = '54px';
+					btn.style.minHeight = '44px';
+					btn.style.fontSize = '1.1rem';
+					btn.addEventListener('dblclick', function(e) {
+						let removedFHs = [];
+						try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
+						const label = 'FH ' + num;
+						const idx = removedFHs.indexOf(label);
+						if (idx !== -1) {
+							removedFHs.splice(idx, 1);
+							localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removedFHs));
+							renderFHLists();
+						}
+					});
+					fhArea.appendChild(btn);
+				});
+				// After rendering, re-dispatch input event on search bar to update search results
+				const searchInput = document.getElementById('global-search');
+				if (searchInput) {
+					const event = new Event('input', { bubbles: true });
+					searchInput.dispatchEvent(event);
+				}
+			}
+		}
+		document.addEventListener('DOMContentLoaded', renderFHLists);
+	</script>
+	<!-- modal editor -->
+	<div id="modal" style="position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(12,12,18,0.45);display:none;align-items:center;justify-content:center;z-index:80" role="dialog" aria-hidden="true">
+		<div style="background:#fff;padding:16px;border-radius:12px;min-width:320px;max-width:760px;box-shadow:0 10px 40px rgba(0,0,0,0.16)">
+			<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+				<strong id="modal-title">Editor</strong>
+				<button class="btn btn-small" id="modal-close">Schließen</button>
+			</div>
+			<div id="modal-content"><div id="vehicle-list"></div>
+				<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+					<input id="new-label" placeholder="Neuer Button-Text" style="padding:8px;border:1px solid #ddd;border-radius:6px"/>
+					<input id="new-target" placeholder="Ziel-Seite (optional)" style="padding:8px;border:1px solid #ddd;border-radius:6px"/>
+					<button class="btn btn-purple" id="add-vehicle">Hinzufügen</button>
+				</div>
+			</div>
+			<div style="margin-top:12px;text-align:right"><button class="btn btn-small" id="modal-save">Fertig</button></div>
+		</div>
+	</div>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="de">
+<!-- ...existing code... -->

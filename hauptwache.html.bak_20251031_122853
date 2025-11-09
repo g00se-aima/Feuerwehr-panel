@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Hauptwache</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<script src="script.js"></script>
+<script src="buttons.js"></script>
+<!-- ...existing code... -->
+<header>
+	<div class="left-controls">
+		<button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+		<button class="btn btn-black" id="btn-hauptmenu" onclick="window.location.href='index.html'">Hauptmenu</button>
+		<div class="meta" id="page-indicator"><span class="page-title">Hauptwache</span></div>
+	</div>
+	<div style="display:flex;align-items:center;gap:12px">
+		<div style="position:relative">
+			<input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+			<div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+		</div>
+		<div style="display:flex;gap:8px;align-items:center">
+			<button class="btn btn-small" id="btn-export">Backup download</button>
+			<button class="btn btn-small" id="btn-import">Restore backup</button>
+			<input type="file" id="import-file" style="display:none" accept=".json"/>
+		</div>
+	</div>
+</header>
+<main class="container">
+	<div class="card" style="margin-top:80px;">
+		<div id="vehicle-btns" class="page-buttons"></div>
+		<div id="vehicle-edit-btn" style="margin-top:18px;"></div>
+	</div>
+</main>
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof setupGlobalSearch === 'function') setupGlobalSearch();
+
+  // Wait a short time if VEHICLE_LIST not available yet
+  function renderWhenReady() {
+    if (!window.VEHICLE_LIST) {
+      // try again shortly
+      setTimeout(renderWhenReady, 50);
+      return;
+    }
+
+    const allowed = [
+      '1-hlf20-1',
+      '1-hlf20-3',
+      '1-dlk23-1',
+      '1-tlf4000-1',
+      'tlf-azubi',
+      'tlf azubi',
+      'tlfazubi'
+    ].map(s => s.toLowerCase());
+
+    const container = document.getElementById('vehicle-btns');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const filtered = window.VEHICLE_LIST.filter(function(item) {
+      const title = (item[0] || '').toLowerCase();
+      const file = (item[1] || '').toLowerCase();
+      const norm = title.replace(/[\s\-_.]+/g, '');
+      return allowed.some(function(a) {
+        return title.includes(a) || file.includes(a) || norm.includes(a.replace(/[-_.]/g, ''));
+      });
+    });
+
+    filtered.forEach(function(entry) {
+      var title = entry[0];
+      var file = entry[1];
+      var btn = document.createElement('button');
+      btn.textContent = title;
+      btn.className = 'btn btn-black vehicle-btn';
+      btn.addEventListener('click', function() {
+        if (file) window.location.href = file;
+      });
+      container.appendChild(btn);
+    });
+
+    // render edit button if present
+    var editContainer = document.getElementById('vehicle-edit-btn');
+    if (editContainer) {
+      editContainer.innerHTML = '';
+      var editBtn = document.createElement('button');
+      editBtn.textContent = 'Fahrzeuge bearbeiten';
+      editBtn.className = 'btn btn-small vehicleedit-btn';
+      editBtn.addEventListener('click', function() {
+        if (window.openVehicleEditor) return window.openVehicleEditor();
+        alert('Vehicle editor not available');
+      });
+      editContainer.appendChild(editBtn);
+    }
+  }
+
+  renderWhenReady();
+});
+</script>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Atemschutzeinsatz</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="left-controls">
+    <button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+    <div class="meta" id="page-indicator">Seite: <strong id="current-page-name">Atemschutzeinsatz</strong></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="position:relative">
+      <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+      <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-small" id="btn-export">Backup download</button>
+      <button class="btn btn-small" id="btn-import">Restore backup</button>
+      <input type="file" id="import-file" style="display:none" accept=".json"/>
+    </div>
+  </div>
+</header>
+<header>
+  <div class="left-controls">
+    <button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+    <button class="btn btn-black" id="btn-hauptmenu" onclick="window.location.href='index.html'">Hauptmenu</button>
+    <div class="meta" id="page-indicator"><span class="page-title">Atemschutzeinsatz</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="position:relative">
+      <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+      <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-small" id="btn-export">Backup download</button>
+      <button class="btn btn-small" id="btn-import">Restore backup</button>
+      <input type="file" id="import-file" style="display:none" accept=".json"/>
+    </div>
+  </div>
+</header>
+<main class="container">
+  <div class="card center-col">
+    <form class="einsatz-form" style="width:100%;max-width:500px;display:flex;flex-direction:column;gap:16px;margin-bottom:24px;">
+      <label style="font-weight:600;">Datum:
+        <input type="text" class="search-input" placeholder="TT.MM.JJJJ" style="width:100%;margin-top:6px;" />
+      </label>
+      <label style="font-weight:600;">Einsatznummer:
+        <input type="text" class="search-input" placeholder="Einsatznummer" style="width:100%;margin-top:6px;" />
+      </label>
+      <label style="font-weight:600;">Straße:
+        <input type="text" class="search-input" placeholder="Straße" style="width:100%;margin-top:6px;" />
+      </label>
+      <label style="font-weight:600;">Ort:
+        <input type="text" class="search-input" placeholder="Ort" style="width:100%;margin-top:6px;" />
+      </label>
+      <button type="button" class="btn btn-purple" id="btn-open-einsatz" style="margin-top:12px;font-size:1.1rem;">Einsatz Eröffnen</button>
+    </form>
+  <div id="einsatz-info-area"></div>
+    <button class="btn btn-grey" onclick="window.location.href='nummern-psa.html'">Nummern PSA</button>
+  </div>
+</main>
+<!-- modal editor -->
+<div id="modal" style="position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(12,12,18,0.45);display:none;align-items:center;justify-content:center;z-index:80" role="dialog" aria-hidden="true">
+  <div style="background:#fff;padding:16px;border-radius:12px;min-width:320px;max-width:760px;box-shadow:0 10px 40px rgba(0,0,0,0.16)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong id="modal-title">Editor</strong>
+      <button class="btn btn-small" id="modal-close">Schließen</button>
+    </div>
+    <div id="modal-content"><div id="vehicle-list"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <input id="new-label" placeholder="Neuer Button-Text" style="padding:8px;border:1px solid #ddd;border-radius:6px"/>
+        <input id="new-target" placeholder="Ziel-Seite (optional)" style="padding:8px;border:1px solid #ddd;border-radius:6px"/>
+        <button class="btn btn-purple" id="add-vehicle">Hinzufügen</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;text-align:right"><button class="btn btn-small" id="modal-save">Fertig</button></div>
+  </div>
+</div>
+<script src="script.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('.einsatz-form');
+  const infoArea = document.getElementById('einsatz-info-area');
+  const btnOpen = document.getElementById('btn-open-einsatz');
+
+  // Load einsatz list from localStorage
+  function loadEinsaetze() {
+    return JSON.parse(localStorage.getItem('einsatz_list') || '[]');
+  }
+  function saveEinsaetze(list) {
+    localStorage.setItem('einsatz_list', JSON.stringify(list));
+  }
+
+  function renderEinsaetze() {
+    const einsaetze = loadEinsaetze();
+    infoArea.innerHTML = '';
+    einsaetze.forEach((einsatz, idx) => {
+      const card = document.createElement('div');
+      card.className = 'einsatz-info-card';
+      card.style.background = '#f7f7ff';
+      card.style.borderRadius = '12px';
+      card.style.padding = '18px';
+      card.style.marginBottom = '18px';
+      card.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
+      card.innerHTML = `
+        <div style="font-weight:600;margin-bottom:8px;">Einsatzdaten</div>
+        <div><strong>Datum:</strong> ${einsatz.datum}</div>
+        <div><strong>Einsatznummer:</strong> ${einsatz.nummer}</div>
+        <div><strong>Straße:</strong> ${einsatz.strasse}</div>
+        <div><strong>Ort:</strong> ${einsatz.ort}</div>
+        <div style="margin-top:12px;font-weight:600;">Atemschutzträger</div>
+        <div>${einsatz.nummern && einsatz.nummern.length ? einsatz.nummern.map(n => `<span class='atemschutztraeger-tag'>${n}</span>`).join(' ') : '<span style="color:#aaa;">Keine zugewiesen</span>'}</div>
+        <div style="margin-top:18px;display:flex;gap:12px;">
+          <button class="btn btn-grey" data-edit="${idx}">Einsatz bearbeiten</button>
+          <button class="btn btn-red" data-close="${idx}">Einsatz abschließen</button>
+          <button class="btn btn-purple" data-print="${idx}">Einsatz drucken</button>
+        </div>
+      `;
+      infoArea.appendChild(card);
+    });
+    // Add button logic
+    setTimeout(function() {
+      infoArea.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.addEventListener('click', function() {
+          window.location.href = 'nummern-psa.html';
+        });
+      });
+      infoArea.querySelectorAll('[data-close]').forEach(btn => {
+        btn.addEventListener('click', function() {
+          if (confirm('Einsatz wirklich abschließen?')) {
+            const einsaetze = loadEinsaetze();
+            einsaetze.splice(parseInt(btn.dataset.close), 1);
+            saveEinsaetze(einsaetze);
+            renderEinsaetze();
+          }
+        });
+      });
+      infoArea.querySelectorAll('[data-print]').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const einsaetze = loadEinsaetze();
+          const einsatz = einsaetze[parseInt(btn.dataset.print)];
+          if (!einsatz) return;
+          let text = `Einsatzdaten\nDatum: ${einsatz.datum}\nEinsatznummer: ${einsatz.nummer}\nStraße: ${einsatz.strasse}\nOrt: ${einsatz.ort}`;
+          if (einsatz.nummern && einsatz.nummern.length) text += `\nAtemschutzträger: ${einsatz.nummern.join(', ')}`;
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          doc.setFont('helvetica');
+          doc.setFontSize(14);
+          doc.text(text.trim(), 20, 30);
+          doc.save('einsatz.pdf');
+        });
+      });
+    }, 50);
+  }
+
+  if (btnOpen) {
+    btnOpen.addEventListener('click', function() {
+      const inputs = form.querySelectorAll('input');
+      const [datum, nummer, strasse, ort] = Array.from(inputs).map(i => i.value.trim());
+      if (!datum && !nummer && !strasse && !ort) return;
+      // Save einsatz to localStorage
+      const einsaetze = loadEinsaetze();
+      einsaetze.push({ datum, nummer, strasse, ort, nummern: [] });
+      saveEinsaetze(einsaetze);
+      renderEinsaetze();
+      inputs.forEach(i => i.value = '');
+    });
+  }
+
+  renderEinsaetze();
+});
+</script>
+</body>
+</html>

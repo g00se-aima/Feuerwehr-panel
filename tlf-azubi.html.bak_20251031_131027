@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>TLF Azubi</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="left-controls">
+      <button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+      <button class="btn btn-black" id="btn-hauptmenu" onclick="window.location.href='index.html'">Hauptmenu</button>
+      <div class="meta" id="page-indicator"><span class="page-title">TLF Azubi</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="position:relative">
+        <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+        <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-small" id="btn-export">Backup download</button>
+        <button class="btn btn-small" id="btn-import">Restore backup</button>
+        <input type="file" id="import-file" style="display:none" accept=".json" />
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="card" style="margin-top:80px;">
+      <div class="page-title-row">
+        <strong>TLF Azubi</strong>
+        <div style="margin-left:auto">
+          <button class="btn btn-small" id="btn-add-moveable">Fahrzeuge bearbeiten</button>
+        </div>
+      </div>
+
+      <!-- Vehicle area containers (same as 1-hlf20-1) -->
+      <div class="moveable-area" data-area-id="front">
+        <div class="area-header">Front</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="rear">
+        <div class="area-header">Heck / Rückraum</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="technikflaschen">
+        <div class="area-header">Technikflaschen</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="atemluftflaschen">
+        <div class="area-header">Atemluftflaschen</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="pa">
+        <div class="area-header">PA</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="fluchthauben">
+        <div class="area-header">Fluchthauben</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="sicherheitstrupptaschen">
+        <div class="area-header">Sicherheitstrupptaschen</div>
+        <div class="area-content"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- load buttons data first, then app logic -->
+  <script src="buttons.js"></script>
+  <script src="script.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof setupGlobalSearch === 'function') setupGlobalSearch();
+
+      // Ensure VEHICLE_LIST / renderMoveableButtons are available and populate areas
+      const areaIds = ['front','rear','technikflaschen','atemluftflaschen','pa','fluchthauben','sicherheitstrupptaschen'];
+
+      function populateAreas() {
+        areaIds.forEach(id => {
+          const el = document.querySelector('.moveable-area[data-area-id="' + id + '"]');
+          if (!el) return;
+          const content = el.querySelector('.area-content');
+          if (!content) return;
+
+          // Prefer using the shared renderer if present
+          if (typeof window.renderMoveableButtons === 'function') {
+            try {
+              // renderMoveableButtons should populate buttons assigned to this vehicle/page
+              window.renderMoveableButtons(content);
+            } catch (e) {
+              // fallback: no-op
+              console.error('renderMoveableButtons error:', e);
+            }
+            return;
+          }
+
+          // Fallback: if global assignment data is stored in localStorage/pages, try to render moveables assigned to this page
+          if (window.pages && Array.isArray(window.pages)) {
+            // noop - keep consistent with project conventions (actual rendering handled by script.js)
+          }
+        });
+      }
+
+      // If buttons.js may not have loaded immediately, retry a few times
+      let attempts = 0;
+      function tryPopulate() {
+        attempts++;
+        if (typeof window.renderMoveableButtons === 'function' || (window.VEHICLE_LIST && Array.isArray(window.VEHICLE_LIST))) {
+          populateAreas();
+        } else if (attempts < 20) {
+          setTimeout(tryPopulate, 50);
+        } else {
+          console.warn('renderMoveableButtons / VEHICLE_LIST not available for TLF Azubi page');
+        }
+      }
+      tryPopulate();
+
+      // Hook up "Fahrzeuge bearbeiten"
+      const editBtn = document.getElementById('btn-add-moveable');
+      if (editBtn) editBtn.addEventListener('click', function () {
+        if (typeof window.openVehicleEditor === 'function') return window.openVehicleEditor();
+        alert('Vehicle editor not available');
+      });
+    });
+  </script>
+</body>
+</html>
+```// filepath: /Users/sharmany/Downloads/FireDeptApp/tlf-azubi.html
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>TLF Azubi</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="left-controls">
+      <button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+      <button class="btn btn-black" id="btn-hauptmenu" onclick="window.location.href='index.html'">Hauptmenu</button>
+      <div class="meta" id="page-indicator"><span class="page-title">TLF Azubi</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="position:relative">
+        <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+        <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-small" id="btn-export">Backup download</button>
+        <button class="btn btn-small" id="btn-import">Restore backup</button>
+        <input type="file" id="import-file" style="display:none" accept=".json" />
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="card" style="margin-top:80px;">
+      <div class="page-title-row">
+        <strong>TLF Azubi</strong>
+        <div style="margin-left:auto">
+          <button class="btn btn-small" id="btn-add-moveable">Fahrzeuge bearbeiten</button>
+        </div>
+      </div>
+
+      <!-- Vehicle area containers (same as 1-hlf20-1) -->
+      <div class="moveable-area" data-area-id="front">
+        <div class="area-header">Front</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="rear">
+        <div class="area-header">Heck / Rückraum</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="technikflaschen">
+        <div class="area-header">Technikflaschen</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="atemluftflaschen">
+        <div class="area-header">Atemluftflaschen</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="pa">
+        <div class="area-header">PA</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="fluchthauben">
+        <div class="area-header">Fluchthauben</div>
+        <div class="area-content"></div>
+      </div>
+
+      <div class="moveable-area" data-area-id="sicherheitstrupptaschen">
+        <div class="area-header">Sicherheitstrupptaschen</div>
+        <div class="area-content"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- load buttons data first, then app logic -->
+  <script src="buttons.js"></script>
+  <script src="script.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof setupGlobalSearch === 'function') setupGlobalSearch();
+
+      // Ensure VEHICLE_LIST / renderMoveableButtons are available and populate areas
+      const areaIds = ['front','rear','technikflaschen','atemluftflaschen','pa','fluchthauben','sicherheitstrupptaschen'];
+
+      function populateAreas() {
+        areaIds.forEach(id => {
+          const el = document.querySelector('.moveable-area[data-area-id="' + id + '"]');
+          if (!el) return;
+          const content = el.querySelector('.area-content');
+          if (!content) return;
+
+          // Prefer using the shared renderer if present
+          if (typeof window.renderMoveableButtons === 'function') {
+            try {
+              // renderMoveableButtons should populate buttons assigned to this vehicle/page
+              window.renderMoveableButtons(content);
+            } catch (e) {
+              // fallback: no-op
+              console.error('renderMoveableButtons error:', e);
+            }
+            return;
+          }
+
+          // Fallback: if global assignment data is stored in localStorage/pages, try to render moveables assigned to this page
+          if (window.pages && Array.isArray(window.pages)) {
+            // noop - keep consistent with project conventions (actual rendering handled by script.js)
+          }
+        });
+      }
+
+      // If buttons.js may not have loaded immediately, retry a few times
+      let attempts = 0;
+      function tryPopulate() {
+        attempts++;
+        if (typeof window.renderMoveableButtons === 'function' || (window.VEHICLE_LIST && Array.isArray(window.VEHICLE_LIST))) {
+          populateAreas();
+        } else if (attempts < 20) {
+          setTimeout(tryPopulate, 50);
+        } else {
+          console.warn('renderMoveableButtons / VEHICLE_LIST not available for TLF Azubi page');
+        }
+      }
+      tryPopulate();
+
+      // Hook up "Fahrzeuge bearbeiten"
+      const editBtn = document.getElementById('btn-add-moveable');
+      if (editBtn) editBtn.addEventListener('click', function () {
+        if (typeof window.openVehicleEditor === 'function') return window.openVehicleEditor();
+        alert('Vehicle editor not available');
+      });
+    });
+  </script>
+</body>
+</html>

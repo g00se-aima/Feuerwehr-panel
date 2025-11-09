@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+<title>GWG</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header>
+  <div class="left-controls">
+    <button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+    <div class="meta" id="page-indicator">Seite: <strong id="current-page-name">GWG</strong></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="position:relative">
+      <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+      <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-small" id="btn-export">Backup download</button>
+      <button class="btn btn-small" id="btn-import">Restore backup</button>
+      <input type="file" id="import-file" style="display:none" accept=".json"/>
+    </div>
+  </div>
+</header>
+<header>
+  <div class="left-controls">
+    <button class="btn btn-small" id="btn-uebersicht">Übersicht</button>
+    <button class="btn btn-black" id="btn-hauptmenu" onclick="window.location.href='index.html'">Hauptmenu</button>
+    <div class="meta" id="page-indicator"><span class="page-title">GWG</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="position:relative">
+      <input id="global-search" class="search-input" placeholder="Suche (Seiten & Inhalte)..." />
+      <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-small" id="btn-export">Backup download</button>
+      <button class="btn btn-small" id="btn-import">Restore backup</button>
+      <input type="file" id="import-file" style="display:none" accept=".json"/>
+    </div>
+  </div>
+</header>
+<main class="container">
+  <div class="card" id="app"></div>
+  <div id="areas-container"></div>
+</main>
+<!-- modal editor -->
+<div id="modal" style="position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(12,12,18,0.45);display:none;align-items:center;justify-content:center;z-index:80" role="dialog" aria-hidden="true">
+  <div style="background:#fff;padding:16px;border-radius:12px;min-width:320px;max-width:760px;box-shadow:0 10px 40px rgba(0,0,0,0.16)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong id="modal-title">Editor</strong>
+      <button class="btn btn-small" id="modal-close">Schließen</button>
+    </div>
+    <div id="modal-content"><div id="vehicle-list"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <input id="new-label" placeholder="Neuer Button-Text" style="padding:8px;border:1px solid #ddd;border-radius:6px"/>
+        <input id="new-target" placeholder="Ziel-Seite (optional)" style="padding:8px;border:1px solid #ddd;border-radius:6px"/>
+        <button class="btn btn-purple" id="add-vehicle">Hinzufügen</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;text-align:right"><button class="btn btn-small" id="modal-save">Fertig</button></div>
+  </div>
+</div>
+<script src="script.js"></script>
+<script src="areas.js"></script>
+<script>
+// Render only the requested areas in this order (Sprungretter removed):
+const requestedAreas = [
+  'Atemschutzgeräte',
+  'Fluchthauben',
+  'Technikflaschen',
+  'Sicherheitstrupptasche',
+  'CSA',
+  'Messgeräte',
+  'Atemschutzmasken',
+  'Fluchthauben'
+];
+const container = document.getElementById('areas-container');
+const seen = new Set();
+requestedAreas.forEach(title => {
+  if (seen.has(title)) return;
+  seen.add(title);
+  const areaId = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const area = document.createElement('div');
+  area.className = 'moveable-area';
+  area.dataset.areaId = areaId;
+  // Area title
+  const h3 = document.createElement('h3');
+  h3.textContent = title;
+  h3.className = 'area-title';
+  area.appendChild(h3);
+  // Area content container for moveable buttons
+  const content = document.createElement('div');
+  content.className = 'area-content';
+  area.appendChild(content);
+  // Register the OUTER area as the drop zone
+  if (window.registerArea) window.registerArea(areaId, area);
+  container.appendChild(area);
+});
+</script>
+<script>
+  // On page load, render moveables for this page from localStorage
+  document.addEventListener('DOMContentLoaded', function() {
+    const thisPage = window.location.pathname.split('/').pop();
+    const moveablesKey = 'moveables_' + thisPage;
+    let moveables = [];
+    try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+    // Only render moveables assigned to this page
+    moveables.forEach(m => {
+      const area = document.querySelector('.moveable-area[data-area-id="' + m.areaId + '"]');
+      if (area) {
+        const content = area.querySelector('.area-content') || area;
+        const btn = document.createElement('button');
+        btn.textContent = m.label;
+        btn.className = m.className || 'moveable-btn';
+        if (m.style) btn.setAttribute('style', m.style);
+        btn.setAttribute('draggable', 'true');
+        btn.addEventListener('click', function() {
+          if (typeof showAssignmentSidebar === 'function') showAssignmentSidebar(btn);
+        });
+        // Double-click to unassign: remove from DOM and localStorage, and if TF, restore to liste-technikflaschen
+        btn.addEventListener('dblclick', function() {
+          // Remove from DOM
+          if (btn.parentNode) btn.parentNode.removeChild(btn);
+          // Remove from localStorage for this page
+          let moveables = [];
+          const thisPage = window.location.pathname.split('/').pop();
+          const moveablesKey = 'moveables_' + thisPage;
+          try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+          moveables = moveables.filter(mv => mv.label !== btn.textContent);
+          localStorage.setItem(moveablesKey, JSON.stringify(moveables));
+          // If TF button, restore to liste-technikflaschen
+          if (btn.textContent.startsWith('TF ')) {
+            let removedTFs = [];
+            try { removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch (e) {}
+            const idx = removedTFs.indexOf(btn.textContent);
+            if (idx !== -1) {
+              removedTFs.splice(idx, 1);
+              localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removedTFs));
+            }
+          }
+        });
+        content.appendChild(btn);
+      }
+    });
+  });
+</script>
+</body>
+</html>
