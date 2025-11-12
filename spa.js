@@ -1601,6 +1601,20 @@ function showAssignmentSidebar(moveableBtn) {
   });
         pSidebar.appendChild(grid);
         document.body.appendChild(pSidebar);
+        // Dismiss personal-select sidebar when clicking/tapping outside
+        setTimeout(() => {
+          function pHandler(e) {
+            try {
+              if (pSidebar.style.display !== 'none' && !pSidebar.contains(e.target)) {
+                pSidebar.style.display = 'none';
+                document.removeEventListener('mousedown', pHandler);
+                document.removeEventListener('touchstart', pHandler);
+              }
+            } catch (_) {}
+          }
+          document.addEventListener('mousedown', pHandler);
+          document.addEventListener('touchstart', pHandler, { passive: true });
+        }, 50);
       });
       sidebar.appendChild(personalBtn);
     }
