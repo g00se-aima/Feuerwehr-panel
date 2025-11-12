@@ -223,11 +223,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .page-title{margin:8px 0 20px;font-size:1.6rem;text-align:center}
 main.container{flex:1;display:block;padding:20px;width:100%;max-width:none;margin:0;padding-top:calc(var(--header-height) + 12px);box-sizing:border-box}
 
-/* Allow the main content area to scroll independently and enable smooth touch scrolling on iOS */
-main.container {
+/* Let the document body scroll (not an inner main box). Add top padding so content
+   is not hidden under the fixed header. Enable smooth iOS scrolling on the body. */
+body {
+  padding-top: calc(var(--header-height) + 12px);
   -webkit-overflow-scrolling: touch;
   overflow-y: auto;
-  max-height: calc(100vh - var(--header-height) - 12px);
 }
 .card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;max-width:1200px;width:100%}
 .center-col{display:flex;flex-direction:column;align-items:center;gap:12px}

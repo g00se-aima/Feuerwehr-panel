@@ -203,11 +203,11 @@ function updateHeaderOffset() {
     const main = document.querySelector('main.container');
     const headerHeight = (h ? h.offsetHeight : 64);
     document.documentElement.style.setProperty('--header-height', headerHeight + 'px');
-    if (main) {
-      // Keep a little breathing room
-      main.style.paddingTop = `calc(${headerHeight}px + 12px)`;
-      try { main.style.maxHeight = `calc(100vh - ${headerHeight}px - 12px)`; } catch(_) {}
-    }
+    try {
+      // Keep a little breathing room and set body padding so the document scrolls
+      document.documentElement.style.setProperty('--header-height', headerHeight + 'px');
+      document.body.style.paddingTop = `calc(${headerHeight}px + 12px)`;
+    } catch (_) {}
   } catch (_) {}
 }
 // run on load and resize; also after a short delay to allow fonts/layout to settle
