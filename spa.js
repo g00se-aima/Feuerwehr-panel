@@ -206,6 +206,7 @@ function updateHeaderOffset() {
     if (main) {
       // Keep a little breathing room
       main.style.paddingTop = `calc(${headerHeight}px + 12px)`;
+      try { main.style.maxHeight = `calc(100vh - ${headerHeight}px - 12px)`; } catch(_) {}
     }
   } catch (_) {}
 }
