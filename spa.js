@@ -194,6 +194,24 @@ if (!window.AREA_ASSIGNMENT_BUTTONS) {
   }
 })();
 
+// Keep a CSS var and main padding in-sync with the header height so fixed header
+// doesn't overlap page content on all pages (useful for iPad/mobile where header
+// may change height due to safe-area or dynamic UI).
+function updateHeaderOffset() {
+  try {
+    const h = document.querySelector('header');
+    const main = document.querySelector('main.container');
+    const headerHeight = (h ? h.offsetHeight : 64);
+    document.documentElement.style.setProperty('--header-height', headerHeight + 'px');
+    if (main) {
+      // Keep a little breathing room
+      main.style.paddingTop = `calc(${headerHeight}px + 12px)`;
+    }
+  } catch (_) {}
+}
+// run on load and resize; also after a short delay to allow fonts/layout to settle
+try { updateHeaderOffset(); window.addEventListener('resize', updateHeaderOffset); setTimeout(updateHeaderOffset, 300); } catch(_) {}
+
 // Allow SPA to opt-out of specific built-in areas without editing areas.js.
 // The project owner asked to avoid editing areas.js directly, so remove
 // the 'GWG Geräte' area at runtime by filtering AREA_TITLES here.

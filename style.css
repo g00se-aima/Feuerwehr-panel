@@ -118,6 +118,8 @@
 }
 :root{
   --bg:#f4f4f7; --greybtn:#d0d0d6; --purple:#7b4ce6; --black:#111; --white:#fff; --red:#cc2222; --gold:#ffd166; --yellow:#fff18f; --erk:#3b82f6;
+  /* header height used to push page content below fixed header */
+  --header-height: 64px;
 }
 /* Width used for the PSA dropzone; other rules reference this so it's easy to adjust */
 :root { --psa-width: 180px; }
@@ -144,7 +146,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .btn-blue{background:#1976d2;color:#fff;border:none}
 .btn-small{padding:6px 10px;font-size:0.9rem;border-radius:6px}
 .page-title{margin:8px 0 20px;font-size:1.6rem;text-align:center}
-main.container{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:20px}
+main.container{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:20px;padding-top:calc(var(--header-height) + 12px)}
   .card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;width:100%;max-width:none;margin:0;}
 .center-col{display:flex;flex-direction:column;align-items:center;gap:12px}
 .hauptmenu{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 20px;color:#fff}
@@ -219,7 +221,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .btn-purple{background:var(--purple);color:#fff}
 .btn-small{padding:6px 10px;font-size:0.9rem;border-radius:6px}
 .page-title{margin:8px 0 20px;font-size:1.6rem;text-align:center}
-main.container{flex:1;display:block;padding:20px;width:100%;max-width:none;margin:0;}
+main.container{flex:1;display:block;padding:20px;width:100%;max-width:none;margin:0;padding-top:calc(var(--header-height) + 12px)}
 .card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;max-width:1200px;width:100%}
 .center-col{display:flex;flex-direction:column;align-items:center;gap:12px}
 .hauptmenu{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 20px;color:#fff}
