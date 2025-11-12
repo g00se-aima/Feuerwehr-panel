@@ -226,9 +226,18 @@ main.container{flex:1;display:block;padding:20px;width:100%;max-width:none;margi
 /* Let the document body scroll (not an inner main box). Add top padding so content
    is not hidden under the fixed header. Enable smooth iOS scrolling on the body. */
 body {
-  padding-top: calc(var(--header-height) + 12px);
+  /* extra breathing room to ensure the fixed header never covers content;
+     increase the extra offset to compensate for any overlapping UI on iPad */
+  padding-top: calc(var(--header-height) + 32px);
   -webkit-overflow-scrolling: touch;
   overflow-y: auto;
+  /* ensure native scrolling places anchors below the fixed header */
+  scroll-padding-top: calc(var(--header-height) + 32px);
+}
+
+/* Also ensure the document respects scroll padding at the root (helps fragment links) */
+html {
+  scroll-padding-top: calc(var(--header-height) + 32px);
 }
 .card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;max-width:1200px;width:100%}
 .center-col{display:flex;flex-direction:column;align-items:center;gap:12px}

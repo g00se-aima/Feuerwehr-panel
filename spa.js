@@ -200,14 +200,10 @@ if (!window.AREA_ASSIGNMENT_BUTTONS) {
 function updateHeaderOffset() {
   try {
     const h = document.querySelector('header');
-    const main = document.querySelector('main.container');
-    const headerHeight = (h ? h.offsetHeight : 64);
+    const headerHeight = (h ? Math.ceil(h.getBoundingClientRect().height) : 64);
+    // Update CSS var and pad the body (extra breathing room to avoid overlap)
     document.documentElement.style.setProperty('--header-height', headerHeight + 'px');
-    try {
-      // Keep a little breathing room and set body padding so the document scrolls
-      document.documentElement.style.setProperty('--header-height', headerHeight + 'px');
-      document.body.style.paddingTop = `calc(${headerHeight}px + 12px)`;
-    } catch (_) {}
+    try { document.body.style.paddingTop = `calc(${headerHeight}px + 32px)`; } catch(_) {}
   } catch (_) {}
 }
 // run on load and resize; also after a short delay to allow fonts/layout to settle
