@@ -116,6 +116,20 @@ function makeSelectableBtn(title, file, onToggle) {
   return btn;
 }
 
+// Attach a tap-friendly handler that works for pointer/touch/click and avoids double-invokes
+function attachTapHandler(el, handler) {
+  let fired = false;
+  const run = function(ev) {
+    if (fired) return;
+    fired = true;
+    try { handler.call(this, ev); } catch (_) {}
+    setTimeout(() => { fired = false; }, 350);
+  };
+  try { el.addEventListener('pointerdown', run, { passive: true }); } catch (_) {}
+  try { el.addEventListener('touchstart', run, { passive: true }); } catch (_) {}
+  try { el.addEventListener('click', run); } catch (_) {}
+}
+
 window.renderSelectableVehicleButtons = function(container, opts) { const el = getEl(container); if (!el) return; const onToggle = opts && opts.onToggle; el.innerHTML=''; window.VEHICLE_LIST.forEach(([title,file])=>{ el.appendChild(makeSelectableBtn(title,file,onToggle)); }); };
 
 window.callSelectedVehicles = function(container) { const vehicles = window.getSelectedVehicles(container); const payload = { when: Date.now(), vehicles }; try{ localStorage.setItem('called_vehicles', JSON.stringify(payload)); }catch(e){} document.dispatchEvent(new CustomEvent('vehicles:called',{ detail: payload })); return vehicles; };
@@ -954,6 +968,22 @@ function renderLoeschgruppeOberbauerPage() {
   try { renderVehiclePage('loeschgruppe-oberbauer'); } catch (_) {}
 }
 function showAssignmentSidebar(moveableBtn) {
+  // Helper to attach touch/pointer and click handlers without double-invoking
+  function attachTapHandler(el, handler) {
+    let fired = false;
+    const run = function(ev) {
+      if (fired) return;
+      fired = true;
+      try { handler.call(this, ev); } catch (_) {}
+      // reset shortly after to allow subsequent taps
+      setTimeout(() => { fired = false; }, 350);
+    };
+    try {
+      el.addEventListener('pointerdown', run, { passive: true });
+    } catch (_) {}
+    try { el.addEventListener('touchstart', run, { passive: true }); } catch(_) {}
+    try { el.addEventListener('click', run); } catch(_) {}
+  }
   if (!window.sidebar) {
     const sb = document.createElement('div');
     sb.id = 'assignment-sidebar';
@@ -1496,7 +1526,7 @@ function showAssignmentSidebar(moveableBtn) {
           b.className = 'btn btn-grey';
           b.style.minWidth = '48%';
           b.style.margin = '4px 1%';
-          b.addEventListener('click', () => {
+          attachTapHandler(b, () => {
             const name = prompt('Name der Person (Vorname Nachname):');
             if (!name) return;
             // Build new label
@@ -1568,7 +1598,7 @@ function showAssignmentSidebar(moveableBtn) {
             sidebar.style.display = 'none';
           });
           grid.appendChild(b);
-        });
+  });
         pSidebar.appendChild(grid);
         document.body.appendChild(pSidebar);
       });
@@ -1637,7 +1667,7 @@ function showAssignmentSidebar(moveableBtn) {
       cls += 'btn-grey';
     }
     abtn.className = cls;
-    abtn.addEventListener('click', function() {
+    attachTapHandler(abtn, function() {
       const fromList = (window.VEHICLE_LIST || []).find(([title, file]) => title === dest);
   selectedVehicleFile = fromList ? fromList[1] : ((window.CUSTOM_VEHICLE_MAP || {})[dest] || null);
       sidebar.style.display = 'none';
@@ -1715,7 +1745,7 @@ function showAssignmentSidebar(moveableBtn) {
           btn.style.maxWidth = '48%';
           btn.style.minWidth = '120px';
           btn.style.boxSizing = 'border-box';
-          btn.addEventListener('click', function() {
+          attachTapHandler(btn, function() {
             const fromPage = window.location.hash.replace(/^#/, '');
             const targetFile = selectedVehicleFile || fromPage;
             if (moveableBtn.parentNode) moveableBtn.parentNode.removeChild(moveableBtn);
@@ -1778,7 +1808,7 @@ function showAssignmentSidebar(moveableBtn) {
         }
         areaSidebar.style.display = 'flex';
       }, 0);
-    });
+  });
     btnGrid.appendChild(abtn);
   });
   sidebar.appendChild(btnGrid);
