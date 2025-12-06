@@ -16,6 +16,10 @@ function enableDoubleTapEmulation(element, callback) {
     if (e.touches.length === 1) {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+    } else {
+      // Multi-touch detected, reset state
+      tapCount = 0;
+      clearTimeout(tapTimer);
     }
   }, { passive: true });
   
@@ -63,6 +67,10 @@ function enableDoubleTapEmulation(element, callback) {
           tapCount = 0;
         }, doubleTapThreshold);
       }
+    } else {
+      // tapCount > 2, reset to prevent unexpected behavior
+      clearTimeout(tapTimer);
+      tapCount = 0;
     }
   }, { passive: false });
   
