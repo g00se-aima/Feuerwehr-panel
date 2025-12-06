@@ -56,15 +56,19 @@ function enableDoubleTapEmulation(element, callback) {
         callback.call(this, e);
       } else {
         // Too slow, reset
+        clearTimeout(tapTimer);
         tapCount = 1;
         lastTapTime = now;
+        tapTimer = setTimeout(() => {
+          tapCount = 0;
+        }, doubleTapThreshold);
       }
     }
   }, { passive: false });
   
   // Reset on touchmove (user is dragging, not tapping)
   element.addEventListener('touchmove', function(e) {
-    if (tapCount > 0) {
+    if (tapCount > 0 && e.touches.length > 0) {
       const touch = e.touches[0];
       const moveX = Math.abs(touch.clientX - touchStartX);
       const moveY = Math.abs(touch.clientY - touchStartY);
