@@ -1,3 +1,77 @@
+/* CSS Variables */
+:root {
+  --bg: #f4f4f7;
+  --greybtn: #d0d0d6;
+  --purple: #7b4ce6;
+  --black: #111;
+  --white: #fff;
+  --red: #cc2222;
+  --gold: #ffd166;
+  --yellow: #fff18f;
+  --erk: #3b82f6;
+  --psa-width: 180px;
+}
+
+/* Base styles */
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+body {
+  background: var(--bg);
+  color: var(--black);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header styling with fixed positioning and proper z-index */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--white);
+  border-bottom: 1px solid #e1e1e5;
+  gap: 12px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.left-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Main container with padding to account for fixed header */
+main.container {
+  flex: 1;
+  display: block;
+  padding: 70px 20px 20px 20px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.card {
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 6px 22px rgba(16,24,40,0.06);
+  padding: 18px;
+  max-width: 1200px;
+  width: 100%;
+}
+
 /* Grid layout for areas on vehicle pages */
 #areas-container {
   display: grid;
@@ -11,21 +85,7 @@
   align-items: stretch;
 }
 
-.moveable-area {
-  min-width: 0;
-  min-height: 140px;
-  border: 2px dashed #666;
-  border-radius: 10px;
-  background: #f8fafd;
-  margin: 0;
-  padding: 12px 14px 18px 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  transition: border-color 0.2s, background 0.2s;
-}
-/* Moveable area drop zone styling */
+/* Moveable area drop zone styling (single canonical rule) */
 .moveable-area {
   min-width: 220px;
   min-height: 140px;
@@ -40,16 +100,19 @@
   align-items: flex-start;
   transition: border-color 0.2s, background 0.2s;
 }
+
 .moveable-area.area-dragover {
   border-color: #3b82f6;
   background: #e6f0ff;
 }
+
 .area-title {
   font-size: 1.1rem;
   font-weight: bold;
   margin-bottom: 10px;
   color: #222;
 }
+
 .area-content {
   width: 100%;
   min-height: 40px;
@@ -57,7 +120,99 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-/* Sidebar close button (black 'x') */
+
+.center-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.hauptmenu {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 40px 20px;
+  color: var(--white);
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: 90px;
+  gap: 18px;
+  margin-top: 18px;
+  max-width: 800px;
+  width: 100%;
+}
+
+.main-grid .btn {
+  background: var(--greybtn);
+  border-radius: 12px;
+  font-size: 1.02rem;
+  color: #000;
+}
+
+.page-title {
+  margin: 8px 0 20px;
+  font-size: 1.6rem;
+  text-align: center;
+}
+
+/* Button styles (black, grey, purple, red, blue) */
+.btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-block;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-black {
+  background: var(--black);
+  color: var(--white);
+}
+
+.btn-grey {
+  background: var(--greybtn);
+  color: #000;
+}
+
+.btn-purple {
+  background: var(--purple);
+  color: var(--white);
+}
+
+.btn-red {
+  background: var(--red);
+  color: var(--white);
+  border: none;
+  font-weight: bold;
+}
+
+.btn-red-black {
+  background: var(--red);
+  color: #000;
+  border: 2px solid #000;
+}
+
+.btn-blue {
+  background: #1976d2;
+  color: var(--white);
+  border: none;
+}
+
+.btn-small {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border-radius: 6px;
+}
+
+/* Sidebar styling */
 .sidebar-close-btn {
   position: absolute;
   top: 8px;
@@ -72,11 +227,11 @@
   padding: 0;
   line-height: 1;
 }
+
 .sidebar-close-btn:hover {
   color: #e00;
 }
 
-/* Sidebar assignment grid: two rows, all buttons visible, no scroll */
 .sidebar-assignment-grid {
   display: flex;
   flex-wrap: wrap;
@@ -86,6 +241,7 @@
   margin-bottom: 0;
   justify-content: flex-start;
 }
+
 .sidebar-assignment-btn {
   flex: 1 1 48%;
   max-width: 48%;
@@ -93,20 +249,15 @@
   box-sizing: border-box;
   margin-bottom: 0 !important;
 }
-.btn-red {
-  background: var(--red);
-  color: #fff;
-  border: none;
-  font-weight: bold;
-}
+
 .combined-half {
   background: linear-gradient(90deg, #111 50%, gold 50%);
-  color: #fff;
+  color: var(--white);
   font-weight: bold;
   border: 2px solid #222;
 }
+
 /* 2x4 grid for main menu buttons */
-/* 2 columns x 4 rows for main menu buttons */
 .button-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -116,56 +267,79 @@
   justify-items: stretch;
   align-items: stretch;
 }
-:root{
-  --bg:#f4f4f7; --greybtn:#d0d0d6; --purple:#7b4ce6; --black:#111; --white:#fff; --red:#cc2222; --gold:#ffd166; --yellow:#fff18f; --erk:#3b82f6;
-}
-/* Width used for the PSA dropzone; other rules reference this so it's easy to adjust */
-:root { --psa-width: 180px; }
-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: var(--white);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+
+/* Lists & PA buttons */
+.page-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
 }
 
-/* Removed empty body rule */
-html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto, "Helvetica Neue", Arial;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;}
-body{background:var(--bg);color:var(--black);display:flex;flex-direction:column;}
-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e1e1e5;gap:12px;position:sticky;top:0;z-index:50}
-.left-controls{display:flex;align-items:center;gap:8px}
-.btn{padding:10px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;display:inline-block;-webkit-tap-highlight-color:transparent}
-.btn-black{background:var(--black);color:var(--white)}
-.btn-grey{background:var(--greybtn);color:#000}
-.btn-purple{background:var(--purple);color:#fff}
-.btn-red-black{background:var(--red);color:#000;border:2px solid #000}
-.btn-blue{background:#1976d2;color:#fff;border:none}
-.btn-small{padding:6px 10px;font-size:0.9rem;border-radius:6px}
-.page-title{margin:8px 0 20px;font-size:1.6rem;text-align:center}
-main.container{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:20px}
-  .card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;width:100%;max-width:none;margin:0;}
-.center-col{display:flex;flex-direction:column;align-items:center;gap:12px}
-.hauptmenu{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 20px;color:#fff}
-.main-grid{display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:90px;gap:18px;margin-top:18px;max-width:800px;width:100%}
-.main-grid .btn{background:var(--greybtn);border-radius:12px;font-size:1.02rem;color:#000}
+.page-buttons .btn {
+  min-width: 180px;
+  padding: 12px;
+  border-radius: 10px;
+}
 
-/* lists & pa buttons */
-.page-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-/* Gold FL button */
+.fl-btn {
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px;
+  min-width: 64px;
+  text-align: center;
+  font-weight: 700;
+  user-select: none;
+}
+
 .fl-btn.gold {
   background: var(--gold);
   color: #111;
   border: 2px solid #000;
   font-weight: 700;
 }
+
 .fl-btn.yellow-grey {
   background: #e0e0e0;
   color: #111;
   border: 2px solid #888;
   font-weight: 700;
 }
+
+.pa-btn {
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px;
+  border: 2px solid #000;
+  cursor: grab;
+  background: var(--gold);
+  min-width: 64px;
+  text-align: center;
+  font-weight: 700;
+  user-select: none;
+}
+
+.pa-btn.yellow {
+  background: var(--yellow);
+  border-color: gold;
+}
+
+.erk-btn {
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px;
+  border: 2px solid #000;
+  cursor: grab;
+  background: var(--erk);
+  color: var(--white);
+  min-width: 64px;
+  text-align: center;
+  font-weight: 700;
+}
+
 .combine-btn {
   min-width: 120px;
   max-width: 220px;
@@ -185,6 +359,7 @@ main.container{flex:1;display:flex;align-items:flex-start;justify-content:center
   cursor: pointer;
   flex: none !important;
 }
+
 .combine-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -194,65 +369,91 @@ main.container{flex:1;display:flex;align-items:flex-start;justify-content:center
   margin: 0 auto;
   padding: 24px 0;
 }
-/* TF buttons for Liste Technikflaschen: green with black writing */
-/* 2x4 grid for main menu buttons */
-/* 2 columns x 4 rows for main menu buttons */
-.button-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(4, auto);
-  gap: 24px;
-  margin: 32px 0;
-  justify-items: stretch;
-  align-items: stretch;
-}
-:root{
-  --bg:#f4f4f7; --greybtn:#d0d0d6; --purple:#7b4ce6; --black:#111; --white:#fff; --red:#cc2222; --gold:#ffd166; --yellow:#fff18f; --erk:#3b82f6;
-}
-html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto, "Helvetica Neue", Arial;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;}
-body{background:var(--bg);color:var(--black);display:flex;flex-direction:column;}
-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e1e1e5;gap:12px;position:fixed;top:0;left:0;right:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
-.left-controls{display:flex;align-items:center;gap:8px}
-.btn{padding:10px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;display:inline-block;-webkit-tap-highlight-color:transparent}
-.btn-black{background:var(--black);color:var(--white)}
-.btn-grey{background:var(--greybtn);color:#000}
-.btn-purple{background:var(--purple);color:#fff}
-.btn-small{padding:6px 10px;font-size:0.9rem;border-radius:6px}
-.page-title{margin:8px 0 20px;font-size:1.6rem;text-align:center}
-main.container{flex:1;display:block;padding:20px;width:100%;max-width:none;margin:0;}
-.card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;max-width:1200px;width:100%}
-.center-col{display:flex;flex-direction:column;align-items:center;gap:12px}
-.hauptmenu{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 20px;color:#fff}
-.main-grid{display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:90px;gap:18px;margin-top:18px;max-width:800px;width:100%}
-.main-grid .btn{background:var(--greybtn);border-radius:12px;font-size:1.02rem;color:#000}
 
-/* lists & pa buttons */
-.page-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.fl-btn.gold{background:var(--gold);border:2px solid #000;}
-.page-buttons .btn{min-width:180px;padding:12px;border-radius:10px}
-.list-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;border:1px solid #eee;margin-bottom:8px}
-.meta-muted{font-size:0.85rem;color:#777}
-.pa-btn{display:inline-block;padding:8px 10px;border-radius:8px;margin:4px;border:2px solid #000;cursor:grab;background:var(--gold);min-width:64px;text-align:center;font-weight:700;user-select:none}
-.fl-btn{display:inline-block;padding:8px 10px;border-radius:8px;margin:4px;min-width:64px;text-align:center;font-weight:700;user-select:none}
-.pa-btn.yellow{background:var(--yellow);border-color:gold}
-.erk-btn{display:inline-block;padding:8px 10px;border-radius:8px;margin:4px;border:2px solid #000;cursor:grab;background:var(--erk);color:#fff;min-width:64px;text-align:center;font-weight:700}
-.dropzone{min-width:220px;min-height:140px;border:2px dashed #666;border-radius:8px;padding:8px;background:#fafafa;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
-.grid-3x3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.area{min-height:120px;border:1px solid #ccc;border-radius:8px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
-.combined-btn{padding:8px 12px;border-radius:10px;font-weight:700;border:2px solid #000;cursor:grab;display:inline-block;min-width:80px;text-align:center}
-.small-footer{margin-top:18px;text-align:center;color:#666;font-size:0.9rem}
-.search-input{padding:8px 12px;border-radius:10px;border:1px solid #ccc;min-width:220px}
-.einsatz-form input.search-input{
-  color:#000 !important;
-  background:#fff !important;
-  caret-color:#000;
+.combined-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  border: 2px solid #000;
+  cursor: grab;
+  display: inline-block;
+  min-width: 80px;
+  text-align: center;
 }
-/* Ensure header search input is readable */
-header input.search-input{
-  color:#000 !important;
-  background:#fff !important;
-  caret-color:#000;
+
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  margin-bottom: 8px;
 }
+
+.meta-muted {
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.dropzone {
+  min-width: 220px;
+  min-height: 140px;
+  border: 2px dashed #666;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.grid-3x3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.area {
+  min-height: 120px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.small-footer {
+  margin-top: 18px;
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Search input styling */
+.search-input {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  min-width: 220px;
+}
+
+.einsatz-form input.search-input {
+  color: #000 !important;
+  background: var(--white) !important;
+  caret-color: #000;
+}
+
+header input.search-input {
+  color: #000 !important;
+  background: var(--white) !important;
+  caret-color: #000;
+}
+
 .btn-einsatz-square {
   width: 100%;
   height: 80px;
@@ -271,10 +472,11 @@ header input.search-input{
   justify-content: center;
   text-align: center;
 }
+
+/* PSA dropzone positioning */
 .psa-dropzone#einsatz-dropzone {
   position: fixed;
   top: 140px;
-  /* Respect iOS safe area inset on the right (notch/home indicator) */
   right: env(safe-area-inset-right, 0);
   width: calc(var(--psa-width) + env(safe-area-inset-right, 0));
   height: calc(100vh - 140px);
@@ -293,16 +495,30 @@ header input.search-input{
   overflow-y: auto;
   z-index: 99999;
 }
+
 .psa-container {
-  /* Leave space for the PSA dropzone plus a small gap; include safe-area inset */
   margin-right: calc(var(--psa-width) + 20px + env(safe-area-inset-right, 0));
 }
-@media (max-width:900px){.main-grid{grid-template-columns:repeat(2,1fr)}.page-buttons .btn{min-width:140px;padding:10px}.search-input{min-width:160px}}
+
+/* Responsive media queries for mobile/tablet */
+@media (max-width: 900px) {
+  .main-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .page-buttons .btn {
+    min-width: 140px;
+    padding: 10px;
+  }
+  .search-input {
+    min-width: 160px;
+  }
+}
 
 /* iPad / small-screen adjustments to avoid horizontal scroll */
-@media (max-width:1100px) {
-  /* Make main area stack and prevent wide side panels */
-  #areas-container { grid-template-columns: 1fr !important; }
+@media (max-width: 1100px) {
+  #areas-container {
+    grid-template-columns: 1fr !important;
+  }
   .psa-dropzone#einsatz-dropzone {
     position: static !important;
     width: 100% !important;
@@ -313,43 +529,75 @@ header input.search-input{
     margin: 12px 0 !important;
     padding: 12px !important;
   }
-  .psa-container { margin-right: 0 !important; }
-  .card { padding: 14px; }
-  /* Avoid accidental horizontal scrolling from fixed/floating elements */
-  /* Use touch-friendly vertical scrolling and prevent horizontal overflow caused by inner elements */
-  html, body { overflow-x: hidden; }
-  main.container { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  /* Constrain areas container width to viewport (respect safe-area insets) */
-  #areas-container { max-width: calc(100vw - 32px - env(safe-area-inset-left, 0) - env(safe-area-inset-right, 0)); box-sizing: border-box; padding: 0 8px; }
-  .card { max-width: calc(100vw - 32px); box-sizing: border-box; }
-  /* Make individual moveable areas size-friendly on narrow screens */
-  .moveable-area { min-width: auto; width: 100%; }
+  .psa-container {
+    margin-right: 0 !important;
+  }
+  .card {
+    padding: 14px;
+  }
+  html, body {
+    overflow-x: hidden;
+  }
+  main.container {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #areas-container {
+    max-width: calc(100vw - 32px - env(safe-area-inset-left, 0) - env(safe-area-inset-right, 0));
+    box-sizing: border-box;
+    padding: 0 8px;
+  }
+  .card {
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+  }
+  .moveable-area {
+    min-width: auto;
+    width: 100%;
+  }
 }
 
-/* Aggressive iPad / narrow-tablet adjustments: hide the fixed right PSA panel
-   and tighten min-widths so buttons wrap instead of forcing horizontal overflow. */
-@media (max-width:1024px) {
-  .psa-dropzone#einsatz-dropzone { display: none !important; }
-  .psa-container { margin-right: 0 !important; }
-  main.container { padding-left: 10px; padding-right: 10px; }
-  /* Make page buttons wrap more tightly */
-  .page-buttons .btn, .page-buttons .btn-small, .sidebar-assignment-btn, .combine-btn {
+/* Aggressive iPad / narrow-tablet adjustments: hide the fixed right PSA panel */
+@media (max-width: 1024px) {
+  .psa-dropzone#einsatz-dropzone {
+    display: none !important;
+  }
+  .psa-container {
+    margin-right: 0 !important;
+  }
+  main.container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .page-buttons .btn,
+  .page-buttons .btn-small,
+  .sidebar-assignment-btn,
+  .combine-btn {
     min-width: 96px !important;
     max-width: 48% !important;
     box-sizing: border-box;
   }
-  .sidebar-assignment-grid { gap: 8px; }
-  /* Tighter spacing for areas */
-  #areas-container { gap: 12px; padding: 0 6px; }
-  .moveable-area { padding: 8px; }
-  .area-content { gap: 6px; }
-  .card { padding: 10px; }
-  /* Constrain area content height so the page can scroll vertically */
-  .moveable-area { max-height: calc(100vh - 180px); overflow-y: auto; }
+  .sidebar-assignment-grid {
+    gap: 8px;
+  }
+  #areas-container {
+    gap: 12px;
+    padding: 0 6px;
+  }
+  .moveable-area {
+    padding: 8px;
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+  }
+  .area-content {
+    gap: 6px;
+  }
+  .card {
+    padding: 10px;
+  }
 }
 
-/* Simulated in-page fullscreen mode (used on iOS where native fullscreen + keyboard is problematic)
-   Keep the header visible but compact and fixed so search/navigation remain accessible. */
+/* Simulated fullscreen mode for iOS */
 .app-full header {
   display: flex !important;
   position: fixed !important;
@@ -361,17 +609,67 @@ header input.search-input{
   box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
   padding: 6px 10px !important;
 }
-.app-full body, .app-full html { height: 100%; }
+
+.app-full body,
+.app-full html {
+  height: 100%;
+}
+
 .app-full main.container {
-  padding: 56px 12px 12px 12px; /* reserve header height */
-  /* Use the JS-updated --vh custom property to account for iOS dynamic toolbars */
+  padding: 56px 12px 12px 12px;
   height: calc((var(--vh, 1vh) * 100) - 56px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
 .app-full .card {
   border-radius: 8px;
   box-shadow: none;
   height: auto;
   max-width: 100%;
+}
+
+/* Print-friendly styles */
+@media print {
+  header {
+    position: static !important;
+    box-shadow: none !important;
+    border-bottom: 2px solid #000 !important;
+  }
+  
+  main.container {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .btn, button {
+    border: 1px solid #000 !important;
+  }
+  
+  .psa-dropzone#einsatz-dropzone {
+    position: static !important;
+    page-break-inside: avoid;
+  }
+  
+  .card {
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+  
+  .moveable-area {
+    border: 2px solid #666 !important;
+    page-break-inside: avoid;
+  }
+  
+  .search-input,
+  .sidebar-close-btn,
+  .btn-grey,
+  .btn-black,
+  .left-controls {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+  }
 }

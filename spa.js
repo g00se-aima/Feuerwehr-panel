@@ -2926,16 +2926,17 @@ function renderPage(page) {
   }
 }
 
-// Register a simple service worker to enable Add-to-Home-Screen standalone behavior
-try {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
-      console.log('ServiceWorker registered', reg.scope);
-    }).catch(err => {
-      console.warn('ServiceWorker registration failed:', err);
-    });
-  }
-} catch (_) {}
+// Service Worker is intentionally disabled to avoid caching issues
+// Uncomment the code below if you want to enable offline caching:
+// try {
+//   if ('serviceWorker' in navigator) {
+//     navigator.serviceWorker.register('/sw.js').then(reg => {
+//       console.log('ServiceWorker registered', reg.scope);
+//     }).catch(err => {
+//       console.warn('ServiceWorker registration failed:', err);
+//     });
+//   }
+// } catch (_) {}
 
 // Fix for iOS/Android mobile viewports: expose a CSS --vh unit representing 1% of the
 // current innerHeight so we can size fullscreen elements reliably despite dynamic
