@@ -636,40 +636,40 @@ header input.search-input {
     box-shadow: none !important;
     border-bottom: 2px solid #000 !important;
   }
-  
+
   main.container {
     padding: 0 !important;
     margin: 0 !important;
   }
-  
+
   .btn, button {
     border: 1px solid #000 !important;
   }
-  
+
   .psa-dropzone#einsatz-dropzone {
     position: static !important;
     page-break-inside: avoid;
   }
-  
+
   .card {
     box-shadow: none !important;
     page-break-inside: avoid;
   }
-  
+
   .moveable-area {
     border: 2px solid #666 !important;
     page-break-inside: avoid;
   }
-  
+
   .search-input,
   .sidebar-close-btn,
-  .btn-grey,
-  .btn-black,
-  .left-controls {
+  .left-controls,
+  header .btn,
+  header button {
     display: none !important;
   }
-  
+
   body {
-    background: white !important;
+    background: var(--white) !important;
   }
 }
