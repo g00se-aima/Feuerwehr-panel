@@ -95,8 +95,8 @@ window.enableDoubleTapEmulation = function(element, callback) {
     
     // Check if this is a double-tap: same target (or parent), within threshold
     const isSameTarget = currentTarget === lastTapTarget || 
-                         currentTarget.contains(lastTapTarget) ||
-                         (lastTapTarget && lastTapTarget.contains(currentTarget));
+                         (currentTarget && lastTapTarget && currentTarget.contains && currentTarget.contains(lastTapTarget)) ||
+                         (lastTapTarget && currentTarget && lastTapTarget.contains && lastTapTarget.contains(currentTarget));
     
     if (isSameTarget && timeDelta < DOUBLE_TAP_THRESHOLD && timeDelta > 0) {
       // Prevent default zoom behavior on double-tap
