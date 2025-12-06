@@ -1,5 +1,81 @@
 // Consolidated minimal areas & vehicle definitions (migrated from areas.js & buttons.js)
 // These provide the runtime defaults so `spa.js` can run standalone.
+
+// Helper: Touch-based double-tap emulation for mobile devices (iPad Safari)
+// Attaches touch event listeners to detect two taps in quick succession
+function enableDoubleTapEmulation(element, callback) {
+  let lastTapTime = 0;
+  let tapCount = 0;
+  let tapTimer = null;
+  const doubleTapThreshold = 400; // ms - increased for better mobile UX
+  const moveThreshold = 10; // px - ignore if finger moved too much
+  let touchStartX = 0;
+  let touchStartY = 0;
+  
+  element.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 1) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+  
+  element.addEventListener('touchend', function(e) {
+    // Only process single-finger taps
+    if (e.changedTouches.length !== 1) {
+      tapCount = 0;
+      return;
+    }
+    
+    // Check if finger moved too much (likely a drag)
+    const touch = e.changedTouches[0];
+    const moveX = Math.abs(touch.clientX - touchStartX);
+    const moveY = Math.abs(touch.clientY - touchStartY);
+    if (moveX > moveThreshold || moveY > moveThreshold) {
+      tapCount = 0;
+      return;
+    }
+    
+    const now = Date.now();
+    tapCount++;
+    
+    if (tapCount === 1) {
+      // First tap - start timer
+      lastTapTime = now;
+      tapTimer = setTimeout(() => {
+        tapCount = 0; // Reset if second tap doesn't come
+      }, doubleTapThreshold);
+    } else if (tapCount === 2) {
+      // Second tap within threshold
+      const timeSinceLastTap = now - lastTapTime;
+      if (timeSinceLastTap < doubleTapThreshold) {
+        // Double tap detected!
+        e.preventDefault(); // Prevent zoom
+        e.stopPropagation(); // Stop drag events
+        clearTimeout(tapTimer);
+        tapCount = 0;
+        callback.call(this, e);
+      } else {
+        // Too slow, reset
+        tapCount = 1;
+        lastTapTime = now;
+      }
+    }
+  }, { passive: false });
+  
+  // Reset on touchmove (user is dragging, not tapping)
+  element.addEventListener('touchmove', function(e) {
+    if (tapCount > 0) {
+      const touch = e.touches[0];
+      const moveX = Math.abs(touch.clientX - touchStartX);
+      const moveY = Math.abs(touch.clientY - touchStartY);
+      if (moveX > moveThreshold || moveY > moveThreshold) {
+        clearTimeout(tapTimer);
+        tapCount = 0;
+      }
+    }
+  }, { passive: true });
+}
+
 if (!window.AREA_TITLES) {
   window.AREA_TITLES = [
     'Sprungretter',
