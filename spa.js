@@ -108,6 +108,92 @@ function enableDoubleTapEmulation(element, callback) {
   }, { passive: true });
 }
 
+// Helper: Add a small remove button for touch devices
+function addTouchRemoveButton(btn, callback) {
+  // Only add on touch devices
+  if (!('ontouchstart' in window)) return;
+  
+  // Create remove button overlay
+  const removeBtn = document.createElement('span');
+  removeBtn.innerHTML = '×';
+  removeBtn.className = 'touch-remove-btn';
+  removeBtn.style.position = 'absolute';
+  removeBtn.style.top = '-8px';
+  removeBtn.style.right = '-8px';
+  removeBtn.style.width = '24px';
+  removeBtn.style.height = '24px';
+  removeBtn.style.borderRadius = '50%';
+  removeBtn.style.background = '#e00';
+  removeBtn.style.color = '#fff';
+  removeBtn.style.border = '2px solid #fff';
+  removeBtn.style.fontSize = '18px';
+  removeBtn.style.lineHeight = '20px';
+  removeBtn.style.textAlign = 'center';
+  removeBtn.style.cursor = 'pointer';
+  removeBtn.style.zIndex = '10';
+  removeBtn.style.display = 'none';
+  removeBtn.style.fontWeight = 'bold';
+  removeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+  
+  // Ensure parent button has position:relative for absolute positioning
+  if (window.getComputedStyle(btn).position === 'static') {
+    btn.style.position = 'relative';
+  }
+  
+  let showTimer = null;
+  let hideTimer = null;
+  let isDragging = false;
+  
+  // Show remove button on touch start (with delay)
+  btn.addEventListener('touchstart', function(e) {
+    if (isDragging) return;
+    
+    // Clear any existing timers
+    if (showTimer) clearTimeout(showTimer);
+    if (hideTimer) clearTimeout(hideTimer);
+    
+    // Show button after 300ms delay
+    showTimer = setTimeout(() => {
+      if (!isDragging) {
+        removeBtn.style.display = 'inline-flex';
+        // Auto-hide after 2 seconds
+        hideTimer = setTimeout(() => {
+          removeBtn.style.display = 'none';
+        }, 2000);
+      }
+    }, 300);
+  }, { passive: true });
+  
+  // Hide during drag
+  btn.addEventListener('dragstart', function(e) {
+    isDragging = true;
+    removeBtn.style.display = 'none';
+    if (showTimer) clearTimeout(showTimer);
+    if (hideTimer) clearTimeout(hideTimer);
+  });
+  
+  btn.addEventListener('dragend', function(e) {
+    isDragging = false;
+  });
+  
+  // Handle remove button click
+  removeBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    removeBtn.style.display = 'none';
+    if (typeof callback === 'function') {
+      callback.call(btn, e);
+    }
+  });
+  
+  // Prevent remove button from interfering with button's own click handlers
+  removeBtn.addEventListener('touchstart', function(e) {
+    e.stopPropagation();
+  }, { passive: false });
+  
+  btn.appendChild(removeBtn);
+}
+
 if (!window.AREA_TITLES) {
   window.AREA_TITLES = [
     'Sprungretter',
@@ -3247,6 +3333,17 @@ function renderFLListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fl-btn-list');
+      // Add touch remove button
+      addTouchRemoveButton(btn, function() {
+        let removedFLs = [];
+        try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch (e) {}
+        const label = btn.textContent.trim();
+        if (!removedFLs.includes(label)) {
+          removedFLs.push(label);
+          localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs));
+          renderFLListePage();
+        }
+      });
     });
     // Grey
     window.renderMoveableButtons(container, unassignedGrey, 'FL', 'fl-btn fl-grey', function(btn, num) {
@@ -3259,6 +3356,17 @@ function renderFLListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fl-btn-list');
+      // Add touch remove button
+      addTouchRemoveButton(btn, function() {
+        let removedFLs = [];
+        try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch (e) {}
+        const label = btn.textContent.trim();
+        if (!removedFLs.includes(label)) {
+          removedFLs.push(label);
+          localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs));
+          renderFLListePage();
+        }
+      });
     });
     // Update global search highlighting after render
     const searchInput = document.getElementById('global-search');
@@ -3287,6 +3395,18 @@ function renderFLListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       btn.addEventListener('dblclick', function() {
+        let removedFLs = [];
+        try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch (e) {}
+        const label = 'FL ' + num;
+        const idx = removedFLs.indexOf(label);
+        if (idx !== -1) {
+          removedFLs.splice(idx, 1);
+          localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs));
+          renderFLListePage();
+        }
+      });
+      // Add touch remove button to restore the FL
+      addTouchRemoveButton(btn, function() {
         let removedFLs = [];
         try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch (e) {}
         const label = 'FL ' + num;
@@ -3356,6 +3476,17 @@ function renderTFListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'tf-btn-list');
+      // Add touch remove button
+      addTouchRemoveButton(btn, function() {
+        let removedTFs = [];
+        try { removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch (e) {}
+        const label = btn.textContent.trim();
+        if (!removedTFs.includes(label)) {
+          removedTFs.push(label);
+          localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removedTFs));
+          renderTFListePage();
+        }
+      });
     });
     const searchInput = document.getElementById('global-search');
     if (searchInput) {
@@ -3382,6 +3513,18 @@ function renderTFListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       btn.addEventListener('dblclick', function(e) {
+        let removedTFs = [];
+        try { removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch (e) {}
+        const label = 'TF ' + num;
+        const idx = removedTFs.indexOf(label);
+        if (idx !== -1) {
+          removedTFs.splice(idx, 1);
+          localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removedTFs));
+          renderTFListePage();
+        }
+      });
+      // Add touch remove button to restore the TF
+      addTouchRemoveButton(btn, function() {
         let removedTFs = [];
         try { removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch (e) {}
         const label = 'TF ' + num;
@@ -3456,6 +3599,17 @@ function renderFHListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fh-btn-list');
+      // Add touch remove button
+      addTouchRemoveButton(btn, function() {
+        let removedFHs = [];
+        try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
+        const label = btn.textContent.trim();
+        if (!removedFHs.includes(label)) {
+          removedFHs.push(label);
+          localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removedFHs));
+          renderFHListePage();
+        }
+      });
     });
     const searchInput = document.getElementById('global-search');
     if (searchInput) {
@@ -3483,6 +3637,18 @@ function renderFHListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       btn.addEventListener('dblclick', function() {
+        let removedFHs = [];
+        try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
+        const label = 'FH ' + num;
+        const idx = removedFHs.indexOf(label);
+        if (idx !== -1) {
+          removedFHs.splice(idx, 1);
+          localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removedFHs));
+          renderFHListePage();
+        }
+      });
+      // Add touch remove button to restore the FH
+      addTouchRemoveButton(btn, function() {
         let removedFHs = [];
         try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
         const label = 'FH ' + num;
@@ -3556,6 +3722,17 @@ function renderAMListePage() {
       btn.style.minHeight = '40px';
       btn.style.fontSize = '1rem';
       if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'am-btn-list');
+      // Add touch remove button
+      addTouchRemoveButton(btn, function() {
+        let removedAMs = [];
+        try { removedAMs = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse') || '[]'); } catch (e) {}
+        const label = btn.textContent.trim();
+        if (!removedAMs.includes(label)) {
+          removedAMs.push(label);
+          localStorage.setItem('removed_ams_liste_atemanschluesse', JSON.stringify(removedAMs));
+          renderAMListePage();
+        }
+      });
     });
     const searchInput = document.getElementById('global-search');
     if (searchInput) {
@@ -3582,6 +3759,18 @@ function renderAMListePage() {
       btn.style.minHeight = '40px';
       btn.style.fontSize = '1rem';
       btn.addEventListener('dblclick', function(e) {
+        let removedAMs = [];
+        try { removedAMs = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse') || '[]'); } catch (e) {}
+        const label = 'AM ' + num;
+        const idx = removedAMs.indexOf(label);
+        if (idx !== -1) {
+          removedAMs.splice(idx, 1);
+          localStorage.setItem('removed_ams_liste_atemanschluesse', JSON.stringify(removedAMs));
+          renderAMListePage();
+        }
+      });
+      // Add touch remove button to restore the AM
+      addTouchRemoveButton(btn, function() {
         let removedAMs = [];
         try { removedAMs = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse') || '[]'); } catch (e) {}
         const label = 'AM ' + num;
@@ -3925,6 +4114,17 @@ function renderSIListePage() {
         decorateCombinedSiInline(btn, entry.fl, styleKind);
         btn.addEventListener('click', function() { showAssignmentSidebar(btn); });
         if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'si-btn-list');
+        // Add touch remove button for combined Si+FL
+        addTouchRemoveButton(btn, function() {
+          let removedSis = [];
+          try { removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch (e) {}
+          const label = `Si ${entry.si}`;
+          if (!removedSis.includes(label)) {
+            removedSis.push(label);
+            localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
+            renderSIListePage();
+          }
+        });
         container.appendChild(btn);
       });
     } catch (_) {}
@@ -3940,6 +4140,17 @@ function renderSIListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'si-btn-list');
+      // Add touch remove button
+      addTouchRemoveButton(btn, function() {
+        let removedSis = [];
+        try { removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch (e) {}
+        const label = btn.textContent.trim();
+        if (!removedSis.includes(label)) {
+          removedSis.push(label);
+          localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
+          renderSIListePage();
+        }
+      });
     });
     // Nudge global search to index new DOM
     const searchInput = document.getElementById('global-search');
@@ -3968,6 +4179,18 @@ function renderSIListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       btn.addEventListener('dblclick', function() {
+        let removedSis = [];
+        try { removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch (e) {}
+        const label = 'Si ' + num;
+        const idx = removedSis.indexOf(label);
+        if (idx !== -1) {
+          removedSis.splice(idx, 1);
+          localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
+          renderSIListePage();
+        }
+      });
+      // Add touch remove button to restore the Si
+      addTouchRemoveButton(btn, function() {
         let removedSis = [];
         try { removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch (e) {}
         const label = 'Si ' + num;
@@ -4606,6 +4829,17 @@ function renderPAListePage() {
     decorateCombinedPAInline(btn, entry.fl, isGold ? 'gold' : 'grey');
     btn.addEventListener('click', function() { showAssignmentSidebar(btn); });
     if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'pa-btn-list');
+    // Add touch remove button for combined PA+FL
+    addTouchRemoveButton(btn, function() {
+      let removedPAs = [];
+      try { removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]'); } catch (e) {}
+      const label = `PA ${entry.pa}`;
+      if (!removedPAs.includes(label)) {
+        removedPAs.push(label);
+        localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+        renderPAListePage();
+      }
+    });
     container.appendChild(btn);
   });
   // Then render the remaining unassigned base PAs
@@ -4623,6 +4857,17 @@ function renderPAListePage() {
     btn.style.fontSize = '1.1rem';
     if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'pa-btn-list');
     btn.addEventListener('click', function() { showAssignmentSidebar(btn); });
+    // Add touch remove button
+    addTouchRemoveButton(btn, function() {
+      let removedPAs = [];
+      try { removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]'); } catch (e) {}
+      const label = btn.textContent.trim();
+      if (!removedPAs.includes(label)) {
+        removedPAs.push(label);
+        localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+        renderPAListePage();
+      }
+    });
     container.appendChild(btn);
   });
   const paArea = document.querySelector('.moveable-area[data-area-id="pa"] .area-content');
@@ -4643,6 +4888,18 @@ function renderPAListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       btn.addEventListener('dblclick', function(e) {
+        let removedPAs = [];
+        try { removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]'); } catch (e) {}
+        const label = 'PA ' + num;
+        const idx = removedPAs.indexOf(label);
+        if (idx !== -1) {
+          removedPAs.splice(idx, 1);
+          localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+          renderPAListePage();
+        }
+      });
+      // Add touch remove button to restore the PA
+      addTouchRemoveButton(btn, function() {
         let removedPAs = [];
         try { removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]'); } catch (e) {}
         const label = 'PA ' + num;
