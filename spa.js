@@ -82,7 +82,9 @@ window.resetAreaButtons = function(areaId) {
 // Enables dblclick handlers to work on iPad Safari and other touch devices
 // by detecting two taps in quick succession and preventing default zoom behavior.
 window.enableDoubleTapEmulation = function(element, callback) {
+  // Validate inputs
   if (!element || typeof callback !== 'function') return;
+  if (!(element instanceof Element) && !(element instanceof HTMLElement)) return;
   
   let lastTapTime = 0;
   let lastTapTarget = null;
@@ -114,6 +116,9 @@ window.enableDoubleTapEmulation = function(element, callback) {
   };
   
   // Use passive: false to allow preventDefault
+  // Note: This is necessary to prevent zoom on double-tap, but may slightly impact
+  // scroll performance. The trade-off is acceptable since this is only applied to
+  // specific buttons, not the entire page.
   element.addEventListener('touchend', handleTouchEnd, { passive: false });
 };
 
