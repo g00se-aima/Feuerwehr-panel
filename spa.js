@@ -3,6 +3,11 @@
 
 // Helper: Touch-based double-tap emulation for mobile devices (iPad Safari)
 // Attaches touch event listeners to detect two taps in quick succession
+/**
+ * Enables double-tap emulation for touch devices
+ * @param {HTMLElement} element - The DOM element to attach touch listeners to
+ * @param {Function} callback - Callback function invoked on successful double-tap, receives the touch event
+ */
 function enableDoubleTapEmulation(element, callback) {
   let lastTapTime = 0;
   let tapCount = 0;
@@ -57,7 +62,7 @@ function enableDoubleTapEmulation(element, callback) {
         e.stopPropagation(); // Stop drag events
         clearTimeout(tapTimer);
         tapCount = 0;
-        callback.call(this, e);
+        callback.call(element, e);
       } else {
         // Too slow, reset
         clearTimeout(tapTimer);
