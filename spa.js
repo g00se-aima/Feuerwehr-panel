@@ -24,7 +24,10 @@ function enableDoubleTapEmulation(element, callback) {
     } else {
       // Multi-touch detected, reset state
       tapCount = 0;
-      clearTimeout(tapTimer);
+      if (tapTimer) {
+        clearTimeout(tapTimer);
+        tapTimer = null;
+      }
     }
   }, { passive: true });
   
@@ -60,12 +63,18 @@ function enableDoubleTapEmulation(element, callback) {
         // Double tap detected!
         e.preventDefault(); // Prevent zoom
         e.stopPropagation(); // Stop drag events
-        clearTimeout(tapTimer);
+        if (tapTimer) {
+          clearTimeout(tapTimer);
+          tapTimer = null;
+        }
         tapCount = 0;
         callback.call(element, e);
       } else {
         // Too slow, reset
-        clearTimeout(tapTimer);
+        if (tapTimer) {
+          clearTimeout(tapTimer);
+          tapTimer = null;
+        }
         tapCount = 1;
         lastTapTime = now;
         tapTimer = setTimeout(() => {
@@ -74,7 +83,10 @@ function enableDoubleTapEmulation(element, callback) {
       }
     } else {
       // tapCount > 2, reset to prevent unexpected behavior
-      clearTimeout(tapTimer);
+      if (tapTimer) {
+        clearTimeout(tapTimer);
+        tapTimer = null;
+      }
       tapCount = 0;
     }
   }, { passive: false });
@@ -86,7 +98,10 @@ function enableDoubleTapEmulation(element, callback) {
       const moveX = Math.abs(touch.clientX - touchStartX);
       const moveY = Math.abs(touch.clientY - touchStartY);
       if (moveX > moveThreshold || moveY > moveThreshold) {
-        clearTimeout(tapTimer);
+        if (tapTimer) {
+          clearTimeout(tapTimer);
+          tapTimer = null;
+        }
         tapCount = 0;
       }
     }
