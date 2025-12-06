@@ -78,6 +78,45 @@ window.resetAreaButtons = function(areaId) {
   });
 };
 
+// ---- Double-Tap Emulation for Mobile Devices ----
+// Enables dblclick handlers to work on iPad Safari and other touch devices
+// by detecting two taps in quick succession and preventing default zoom behavior.
+window.enableDoubleTapEmulation = function(element, callback) {
+  if (!element || typeof callback !== 'function') return;
+  
+  let lastTapTime = 0;
+  let lastTapTarget = null;
+  const DOUBLE_TAP_THRESHOLD = 300; // milliseconds
+  
+  const handleTouchEnd = function(e) {
+    const currentTime = Date.now();
+    const currentTarget = e.target;
+    const timeDelta = currentTime - lastTapTime;
+    
+    // Check if this is a double-tap: same target (or parent), within threshold
+    const isSameTarget = currentTarget === lastTapTarget || 
+                         currentTarget.contains(lastTapTarget) ||
+                         (lastTapTarget && lastTapTarget.contains(currentTarget));
+    
+    if (isSameTarget && timeDelta < DOUBLE_TAP_THRESHOLD && timeDelta > 0) {
+      // Prevent default zoom behavior on double-tap
+      e.preventDefault();
+      // Call the callback (equivalent to dblclick handler)
+      callback.call(element, e);
+      // Reset to prevent triple-tap from triggering another double-tap
+      lastTapTime = 0;
+      lastTapTarget = null;
+    } else {
+      // Record this tap for potential double-tap detection
+      lastTapTime = currentTime;
+      lastTapTarget = currentTarget;
+    }
+  };
+  
+  // Use passive: false to allow preventDefault
+  element.addEventListener('touchend', handleTouchEnd, { passive: false });
+};
+
 // Minimal vehicle list and assignment buttons (from buttons.js)
 if (!window.VEHICLE_LIST) {
   window.VEHICLE_LIST = [
@@ -203,6 +242,7 @@ const AUTH_LOG_KEY = 'auth_login_log_v1';
 // Monkey-patch makeButtonMoveable to intercept double-clicks in capture phase
 // This prevents the original dblclick handler (which unassigns buttons) from
 // running when a user double-clicks a button while it is still in its home area.
+// Also adds double-tap emulation for mobile devices.
 if (typeof window.makeButtonMoveable === 'function') {
   const _origMakeButtonMoveable = window.makeButtonMoveable;
   window.makeButtonMoveable = function(btn, homeAreaId) {
@@ -222,6 +262,11 @@ if (typeof window.makeButtonMoveable === 'function') {
       };
       // Add as capturing listener so it runs before bubble listeners added by original
       btn.addEventListener('dblclick', captureHandler, true);
+      
+      // Enable double-tap emulation for mobile devices
+      if (typeof window.enableDoubleTapEmulation === 'function') {
+        window.enableDoubleTapEmulation(btn, captureHandler);
+      }
     } catch (_) {}
     // Call original implementation to wire drag/drop and other behavior
     try { _origMakeButtonMoveable(btn, homeAreaId); } catch (err) { /* fallback */ }
@@ -3177,7 +3222,7 @@ function renderFLListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.addEventListener('dblclick', function() {
+      const dblclickHandler = function() {
         let removedFLs = [];
         try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch (e) {}
         const label = 'FL ' + num;
@@ -3187,7 +3232,12 @@ function renderFLListePage() {
           localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs));
           renderFLListePage();
         }
-      });
+      };
+      btn.addEventListener('dblclick', dblclickHandler);
+      // Enable double-tap emulation for mobile devices
+      if (typeof window.enableDoubleTapEmulation === 'function') {
+        window.enableDoubleTapEmulation(btn, dblclickHandler);
+      }
       flArea.appendChild(btn);
     });
     const searchInput = document.getElementById('global-search');
@@ -3272,7 +3322,7 @@ function renderTFListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.addEventListener('dblclick', function(e) {
+      const dblclickHandler = function(e) {
         let removedTFs = [];
         try { removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch (e) {}
         const label = 'TF ' + num;
@@ -3282,7 +3332,12 @@ function renderTFListePage() {
           localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removedTFs));
           renderTFListePage();
         }
-      });
+      };
+      btn.addEventListener('dblclick', dblclickHandler);
+      // Enable double-tap emulation for mobile devices
+      if (typeof window.enableDoubleTapEmulation === 'function') {
+        window.enableDoubleTapEmulation(btn, dblclickHandler);
+      }
       technikflaschenArea.appendChild(btn);
     });
     // After rendering, re-dispatch input event on search bar to update search results
@@ -3373,7 +3428,7 @@ function renderFHListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.addEventListener('dblclick', function() {
+      const dblclickHandler = function() {
         let removedFHs = [];
         try { removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch (e) {}
         const label = 'FH ' + num;
@@ -3383,7 +3438,12 @@ function renderFHListePage() {
           localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removedFHs));
           renderFHListePage();
         }
-      });
+      };
+      btn.addEventListener('dblclick', dblclickHandler);
+      // Enable double-tap emulation for mobile devices
+      if (typeof window.enableDoubleTapEmulation === 'function') {
+        window.enableDoubleTapEmulation(btn, dblclickHandler);
+      }
       fhArea.appendChild(btn);
     });
     const searchInput = document.getElementById('global-search');
@@ -3472,7 +3532,7 @@ function renderAMListePage() {
       btn.style.minWidth = '48px';
       btn.style.minHeight = '40px';
       btn.style.fontSize = '1rem';
-      btn.addEventListener('dblclick', function(e) {
+      const dblclickHandler = function(e) {
         let removedAMs = [];
         try { removedAMs = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse') || '[]'); } catch (e) {}
         const label = 'AM ' + num;
@@ -3482,7 +3542,12 @@ function renderAMListePage() {
           localStorage.setItem('removed_ams_liste_atemanschluesse', JSON.stringify(removedAMs));
           renderAMListePage();
         }
-      });
+      };
+      btn.addEventListener('dblclick', dblclickHandler);
+      // Enable double-tap emulation for mobile devices
+      if (typeof window.enableDoubleTapEmulation === 'function') {
+        window.enableDoubleTapEmulation(btn, dblclickHandler);
+      }
       amAreaContent.appendChild(btn);
     });
   }
@@ -3858,7 +3923,7 @@ function renderSIListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.addEventListener('dblclick', function() {
+      const dblclickHandler = function() {
         let removedSis = [];
         try { removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch (e) {}
         const label = 'Si ' + num;
@@ -3868,7 +3933,12 @@ function renderSIListePage() {
           localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
           renderSIListePage();
         }
-      });
+      };
+      btn.addEventListener('dblclick', dblclickHandler);
+      // Enable double-tap emulation for mobile devices
+      if (typeof window.enableDoubleTapEmulation === 'function') {
+        window.enableDoubleTapEmulation(btn, dblclickHandler);
+      }
       siArea.appendChild(btn);
     });
     const searchInput = document.getElementById('global-search');
@@ -4533,7 +4603,7 @@ function renderPAListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.addEventListener('dblclick', function(e) {
+      const dblclickHandler = function(e) {
         let removedPAs = [];
         try { removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]'); } catch (e) {}
         const label = 'PA ' + num;
@@ -4543,7 +4613,12 @@ function renderPAListePage() {
           localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
           renderPAListePage();
         }
-      });
+      };
+      btn.addEventListener('dblclick', dblclickHandler);
+      // Enable double-tap emulation for mobile devices
+      if (typeof window.enableDoubleTapEmulation === 'function') {
+        window.enableDoubleTapEmulation(btn, dblclickHandler);
+      }
       paArea.appendChild(btn);
     });
   }
