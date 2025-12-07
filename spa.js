@@ -109,89 +109,202 @@ function enableDoubleTapEmulation(element, callback) {
 }
 
 // Helper: Add a small remove button for touch devices
-function addTouchRemoveButton(btn, callback) {
-  // Only add on touch devices
-  if (!('ontouchstart' in window)) return;
+// WeakMaps for storing button-associated data without causing memory leaks
+const clickToRemoveCallbacks = new WeakMap();
+const clickToRemoveHandlers = new WeakMap();
+
+/**
+ * Adds click-to-expand removal functionality to a button
+ * Works on both desktop and touch devices
+ * @param {HTMLElement} btn - The button element
+ * @param {Function} callback - Callback function when remove button is clicked
+ */
+function addClickToRemove(btn, callback) {
+  // Store the callback for later use (e.g., when updating state after drag)
+  clickToRemoveCallbacks.set(btn, callback);
   
-  // Create remove button overlay
+  // Don't add if already present
+  if (btn.dataset.clickToRemoveEnabled === 'true') return;
+  
+  // Create remove button overlay (hidden by default)
   const removeBtn = document.createElement('span');
-  removeBtn.innerHTML = '×';
-  removeBtn.className = 'touch-remove-btn';
+  removeBtn.innerHTML = '⨯';
+  removeBtn.className = 'click-to-remove-btn';
   removeBtn.style.position = 'absolute';
   removeBtn.style.top = '-8px';
   removeBtn.style.right = '-8px';
-  removeBtn.style.width = '24px';
-  removeBtn.style.height = '24px';
+  removeBtn.style.width = '28px';
+  removeBtn.style.height = '28px';
   removeBtn.style.borderRadius = '50%';
   removeBtn.style.background = '#e00';
   removeBtn.style.color = '#fff';
   removeBtn.style.border = '2px solid #fff';
-  removeBtn.style.fontSize = '18px';
-  removeBtn.style.lineHeight = '20px';
+  removeBtn.style.fontSize = '20px';
+  removeBtn.style.lineHeight = '24px';
   removeBtn.style.textAlign = 'center';
   removeBtn.style.cursor = 'pointer';
-  removeBtn.style.zIndex = '10';
+  removeBtn.style.zIndex = '1000';
   removeBtn.style.display = 'none';
   removeBtn.style.fontWeight = 'bold';
   removeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+  removeBtn.style.transition = 'all 0.2s ease';
   
   // Ensure parent button has position:relative for absolute positioning
   if (window.getComputedStyle(btn).position === 'static') {
     btn.style.position = 'relative';
   }
   
-  let showTimer = null;
-  let hideTimer = null;
-  let isDragging = false;
+  // Store original computed styles
+  const computedStyle = window.getComputedStyle(btn);
+  const originalZIndex = computedStyle.zIndex;
+  const originalTransform = computedStyle.transform;
+  const originalTransition = computedStyle.transition;
   
-  // Show remove button on touch start (with delay)
-  btn.addEventListener('touchstart', function(e) {
-    if (isDragging) return;
+  // Flag to track expanded state
+  let isExpanded = false;
+  
+  // Function to expand button
+  const expandButton = function(e) {
+    // Don't expand if in home area
+    if (btn.dataset.currentArea === btn.dataset.homeArea) return;
     
-    // Clear any existing timers
-    if (showTimer) clearTimeout(showTimer);
-    if (hideTimer) clearTimeout(hideTimer);
-    
-    // Show button after 300ms delay
-    showTimer = setTimeout(() => {
-      if (!isDragging) {
-        removeBtn.style.display = 'inline-flex';
-        // Auto-hide after 2 seconds
-        hideTimer = setTimeout(() => {
-          removeBtn.style.display = 'none';
-        }, 2000);
-      }
-    }, 300);
-  }, { passive: true });
-  
-  // Hide during drag
-  btn.addEventListener('dragstart', function(e) {
-    isDragging = true;
-    removeBtn.style.display = 'none';
-    if (showTimer) clearTimeout(showTimer);
-    if (hideTimer) clearTimeout(hideTimer);
-  });
-  
-  btn.addEventListener('dragend', function(e) {
-    isDragging = false;
-  });
-  
-  // Handle remove button click
-  removeBtn.addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
+    
+    if (isExpanded) return; // Already expanded
+    
+    isExpanded = true;
+    btn.style.zIndex = '999';
+    btn.style.transform = 'scale(1.2)';
+    btn.style.transition = 'transform 0.2s ease';
+    removeBtn.style.display = 'inline-flex';
+  };
+  
+  // Function to collapse button
+  const collapseButton = function() {
+    if (!isExpanded) return;
+    
+    isExpanded = false;
+    // Remove inline styles to restore to original (CSS) values
+    btn.style.removeProperty('z-index');
+    btn.style.removeProperty('transform');
+    btn.style.removeProperty('transition');
     removeBtn.style.display = 'none';
+  };
+  
+  // Click handler for the button itself
+  const buttonClickHandler = function(e) {
+    // Don't handle if in home area (let sidebar handle it)
+    if (btn.dataset.currentArea === btn.dataset.homeArea) return;
+    
+    if (!isExpanded) {
+      expandButton(e);
+    }
+  };
+  
+  // Click handler for remove button
+  const removeClickHandler = function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    collapseButton();
     if (typeof callback === 'function') {
       callback.call(btn, e);
     }
+  };
+  
+  // Click handler for document (to collapse when clicking outside)
+  const outsideClickHandler = function(e) {
+    if (!isExpanded) return;
+    
+    // Check if click is outside the button
+    if (!btn.contains(e.target)) {
+      collapseButton();
+    }
+  };
+  
+  // Attach event listeners
+  btn.addEventListener('click', buttonClickHandler);
+  removeBtn.addEventListener('click', removeClickHandler);
+  document.addEventListener('click', outsideClickHandler);
+  
+  // Hide during drag
+  const dragStartHandler = function(e) {
+    collapseButton();
+  };
+  
+  btn.addEventListener('dragstart', dragStartHandler);
+  
+  // Store references for cleanup using WeakMap
+  clickToRemoveHandlers.set(btn, {
+    buttonClickHandler,
+    removeClickHandler,
+    outsideClickHandler,
+    dragStartHandler,
+    collapseButton
   });
   
-  // Prevent remove button from interfering with button's own click handlers
-  removeBtn.addEventListener('touchstart', function(e) {
-    e.stopPropagation();
-  }, { passive: false });
-  
   btn.appendChild(removeBtn);
+  btn.dataset.clickToRemoveEnabled = 'true';
+}
+
+/**
+ * Removes click-to-expand functionality and cleans up event listeners
+ * @param {HTMLElement} btn - The button element
+ */
+function removeClickToRemove(btn) {
+  if (btn.dataset.clickToRemoveEnabled !== 'true') return;
+  
+  // Clean up event listeners using WeakMap
+  const handlers = clickToRemoveHandlers.get(btn);
+  if (handlers) {
+    btn.removeEventListener('click', handlers.buttonClickHandler);
+    document.removeEventListener('click', handlers.outsideClickHandler);
+    btn.removeEventListener('dragstart', handlers.dragStartHandler);
+    
+    // Collapse if expanded
+    if (handlers.collapseButton) {
+      handlers.collapseButton();
+    }
+    
+    clickToRemoveHandlers.delete(btn);
+  }
+  
+  // Remove the remove button element
+  const removeBtn = btn.querySelector('.click-to-remove-btn');
+  if (removeBtn) {
+    removeBtn.remove();
+  }
+  
+  // Clean up callback
+  clickToRemoveCallbacks.delete(btn);
+  
+  delete btn.dataset.clickToRemoveEnabled;
+}
+
+/**
+ * Updates click-to-remove state based on current vs home area
+ * Enables when button is NOT in home area, disables when it is
+ * @param {HTMLElement} btn - The button element
+ * @param {Function} callback - Callback function for removal
+ */
+function updateClickToRemoveState(btn, callback) {
+  const isInHomeArea = btn.dataset.currentArea === btn.dataset.homeArea;
+  
+  if (isInHomeArea) {
+    // In home area - remove click-to-remove functionality
+    removeClickToRemove(btn);
+  } else {
+    // In different area - ensure click-to-remove is enabled
+    if (btn.dataset.clickToRemoveEnabled !== 'true' && typeof callback === 'function') {
+      addClickToRemove(btn, callback);
+    }
+  }
+}
+
+// Legacy function name for backward compatibility
+// Will be replaced with addClickToRemove calls
+function addTouchRemoveButton(btn, callback) {
+  addClickToRemove(btn, callback);
 }
 
 if (!window.AREA_TITLES) {
@@ -239,6 +352,12 @@ window.registerArea = function(areaId, element) {
     if (btn && btn.classList.contains('moveable-btn')) {
       element.appendChild(btn);
       btn.dataset.currentArea = areaId;
+      
+      // Update click-to-remove state based on new area
+      const callback = clickToRemoveCallbacks.get(btn);
+      if (callback) {
+        updateClickToRemoveState(btn, callback);
+      }
     }
   });
 };
@@ -269,6 +388,12 @@ window.resetAreaButtons = function(areaId) {
     const home = window.getArea(btn.dataset.homeArea);
     if (home) home.appendChild(btn);
     btn.dataset.currentArea = btn.dataset.homeArea;
+    
+    // Update click-to-remove state (should be disabled in home area)
+    const callback = clickToRemoveCallbacks.get(btn);
+    if (callback) {
+      updateClickToRemoveState(btn, callback);
+    }
   });
 };
 
