@@ -126,33 +126,41 @@ function addClickToRemove(btn, callback) {
   // Don't add if already present
   if (btn.dataset.clickToRemoveEnabled === 'true') return;
   
+  // Mark immediately to prevent duplicate additions
+  btn.dataset.clickToRemoveEnabled = 'true';
+  
+  // Ensure parent button has position:relative for absolute positioning BEFORE creating removeBtn
+  if (window.getComputedStyle(btn).position === 'static') {
+    btn.style.position = 'relative';
+  }
+  
   // Create remove button overlay (hidden by default)
   const removeBtn = document.createElement('span');
   removeBtn.innerHTML = '⨯';
   removeBtn.className = 'click-to-remove-btn';
-  removeBtn.style.position = 'absolute';
-  removeBtn.style.top = '-8px';
-  removeBtn.style.right = '-8px';
-  removeBtn.style.width = '28px';
-  removeBtn.style.height = '28px';
-  removeBtn.style.borderRadius = '50%';
-  removeBtn.style.background = '#e00';
-  removeBtn.style.color = '#fff';
-  removeBtn.style.border = '2px solid #fff';
-  removeBtn.style.fontSize = '20px';
-  removeBtn.style.lineHeight = '24px';
-  removeBtn.style.textAlign = 'center';
-  removeBtn.style.cursor = 'pointer';
-  removeBtn.style.zIndex = '1000';
-  removeBtn.style.display = 'none';
-  removeBtn.style.fontWeight = 'bold';
-  removeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-  removeBtn.style.transition = 'all 0.2s ease';
-  
-  // Ensure parent button has position:relative for absolute positioning
-  if (window.getComputedStyle(btn).position === 'static') {
-    btn.style.position = 'relative';
-  }
+  // Use cssText for comprehensive style application with both display and visibility
+  removeBtn.style.cssText = `
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #e00;
+    color: #fff;
+    border: 2px solid #fff;
+    font-size: 20px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 1000;
+    display: none;
+    visibility: hidden;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+    pointer-events: auto;
+  `;
   
   // Store original computed styles
   const computedStyle = window.getComputedStyle(btn);
@@ -177,7 +185,9 @@ function addClickToRemove(btn, callback) {
     btn.style.zIndex = '999';
     btn.style.transform = 'scale(1.2)';
     btn.style.transition = 'transform 0.2s ease';
+    // Show remove button with both display and visibility
     removeBtn.style.display = 'inline-flex';
+    removeBtn.style.visibility = 'visible';
   };
   
   // Function to collapse button
@@ -189,7 +199,9 @@ function addClickToRemove(btn, callback) {
     btn.style.removeProperty('z-index');
     btn.style.removeProperty('transform');
     btn.style.removeProperty('transition');
+    // Hide remove button with both display and visibility
     removeBtn.style.display = 'none';
+    removeBtn.style.visibility = 'hidden';
   };
   
   // Click handler for the button itself
@@ -244,7 +256,9 @@ function addClickToRemove(btn, callback) {
   });
   
   btn.appendChild(removeBtn);
-  btn.dataset.clickToRemoveEnabled = 'true';
+  // Immediately force hide (before any browser paint) to prevent it appearing as inline text
+  removeBtn.style.display = 'none';
+  removeBtn.style.visibility = 'hidden';
 }
 
 /**
