@@ -109,6 +109,10 @@ function enableDoubleTapEmulation(element, callback) {
 }
 
 // Helper: Add a small remove button for touch devices
+// WeakMaps for storing button-associated data without causing memory leaks
+const clickToRemoveCallbacks = new WeakMap();
+const clickToRemoveHandlers = new WeakMap();
+
 /**
  * Adds click-to-expand removal functionality to a button
  * Works on both desktop and touch devices
@@ -117,7 +121,7 @@ function enableDoubleTapEmulation(element, callback) {
  */
 function addClickToRemove(btn, callback) {
   // Store the callback for later use (e.g., when updating state after drag)
-  btn._clickToRemoveCallback = callback;
+  clickToRemoveCallbacks.set(btn, callback);
   
   // Don't add if already present
   if (btn.dataset.clickToRemoveEnabled === 'true') return;
@@ -150,10 +154,11 @@ function addClickToRemove(btn, callback) {
     btn.style.position = 'relative';
   }
   
-  // Store original z-index
-  const originalZIndex = btn.style.zIndex || '';
-  const originalTransform = btn.style.transform || '';
-  const originalTransition = btn.style.transition || '';
+  // Store original computed styles
+  const computedStyle = window.getComputedStyle(btn);
+  const originalZIndex = computedStyle.zIndex;
+  const originalTransform = computedStyle.transform;
+  const originalTransition = computedStyle.transition;
   
   // Flag to track expanded state
   let isExpanded = false;
@@ -180,9 +185,10 @@ function addClickToRemove(btn, callback) {
     if (!isExpanded) return;
     
     isExpanded = false;
-    btn.style.zIndex = originalZIndex;
-    btn.style.transform = originalTransform;
-    btn.style.transition = originalTransition;
+    // Remove inline styles to restore to original (CSS) values
+    btn.style.removeProperty('z-index');
+    btn.style.removeProperty('transform');
+    btn.style.removeProperty('transition');
     removeBtn.style.display = 'none';
   };
   
@@ -221,21 +227,21 @@ function addClickToRemove(btn, callback) {
   removeBtn.addEventListener('click', removeClickHandler);
   document.addEventListener('click', outsideClickHandler);
   
-  // Store references for cleanup
-  btn._clickToRemoveHandlers = {
-    buttonClickHandler,
-    removeClickHandler,
-    outsideClickHandler,
-    collapseButton
-  };
-  
   // Hide during drag
   const dragStartHandler = function(e) {
     collapseButton();
   };
   
   btn.addEventListener('dragstart', dragStartHandler);
-  btn._clickToRemoveHandlers.dragStartHandler = dragStartHandler;
+  
+  // Store references for cleanup using WeakMap
+  clickToRemoveHandlers.set(btn, {
+    buttonClickHandler,
+    removeClickHandler,
+    outsideClickHandler,
+    dragStartHandler,
+    collapseButton
+  });
   
   btn.appendChild(removeBtn);
   btn.dataset.clickToRemoveEnabled = 'true';
@@ -248,18 +254,19 @@ function addClickToRemove(btn, callback) {
 function removeClickToRemove(btn) {
   if (btn.dataset.clickToRemoveEnabled !== 'true') return;
   
-  // Clean up event listeners
-  if (btn._clickToRemoveHandlers) {
-    btn.removeEventListener('click', btn._clickToRemoveHandlers.buttonClickHandler);
-    document.removeEventListener('click', btn._clickToRemoveHandlers.outsideClickHandler);
-    btn.removeEventListener('dragstart', btn._clickToRemoveHandlers.dragStartHandler);
+  // Clean up event listeners using WeakMap
+  const handlers = clickToRemoveHandlers.get(btn);
+  if (handlers) {
+    btn.removeEventListener('click', handlers.buttonClickHandler);
+    document.removeEventListener('click', handlers.outsideClickHandler);
+    btn.removeEventListener('dragstart', handlers.dragStartHandler);
     
     // Collapse if expanded
-    if (btn._clickToRemoveHandlers.collapseButton) {
-      btn._clickToRemoveHandlers.collapseButton();
+    if (handlers.collapseButton) {
+      handlers.collapseButton();
     }
     
-    delete btn._clickToRemoveHandlers;
+    clickToRemoveHandlers.delete(btn);
   }
   
   // Remove the remove button element
@@ -267,6 +274,9 @@ function removeClickToRemove(btn) {
   if (removeBtn) {
     removeBtn.remove();
   }
+  
+  // Clean up callback
+  clickToRemoveCallbacks.delete(btn);
   
   delete btn.dataset.clickToRemoveEnabled;
 }
@@ -344,8 +354,9 @@ window.registerArea = function(areaId, element) {
       btn.dataset.currentArea = areaId;
       
       // Update click-to-remove state based on new area
-      if (btn._clickToRemoveCallback) {
-        updateClickToRemoveState(btn, btn._clickToRemoveCallback);
+      const callback = clickToRemoveCallbacks.get(btn);
+      if (callback) {
+        updateClickToRemoveState(btn, callback);
       }
     }
   });
@@ -379,8 +390,9 @@ window.resetAreaButtons = function(areaId) {
     btn.dataset.currentArea = btn.dataset.homeArea;
     
     // Update click-to-remove state (should be disabled in home area)
-    if (btn._clickToRemoveCallback) {
-      updateClickToRemoveState(btn, btn._clickToRemoveCallback);
+    const callback = clickToRemoveCallbacks.get(btn);
+    if (callback) {
+      updateClickToRemoveState(btn, callback);
     }
   });
 };
