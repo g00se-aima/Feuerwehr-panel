@@ -248,7 +248,6 @@ function addClickToRemove(btn, callback) {
   
   // Store references for cleanup
   btn._toggleExpandedHandler = buttonClickHandler;
-  btn._touchStartHandler = null; // Not used in current implementation
   btn._outsideClickHandler = outsideClickHandler;
   btn._dragStartHandler = dragStartHandler;
   btn._collapseButton = collapseButton;
@@ -279,16 +278,10 @@ function removeClickToRemove(btn) {
   // Remove event listeners
   if (btn._toggleExpandedHandler) {
     btn.removeEventListener('click', btn._toggleExpandedHandler);
-    btn.removeEventListener('touchend', btn._toggleExpandedHandler);
     delete btn._toggleExpandedHandler;
-  }
-  if (btn._touchStartHandler) {
-    btn.removeEventListener('touchstart', btn._touchStartHandler);
-    delete btn._touchStartHandler;
   }
   if (btn._outsideClickHandler) {
     document.removeEventListener('click', btn._outsideClickHandler);
-    document.removeEventListener('touchend', btn._outsideClickHandler);
     delete btn._outsideClickHandler;
   }
   if (btn._dragStartHandler) {
