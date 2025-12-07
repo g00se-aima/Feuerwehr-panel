@@ -11,6 +11,7 @@
   align-items: stretch;
 }
 
+/* Moveable area drop zone styling (single canonical rule) */
 .moveable-area {
   min-width: 0;
   min-height: 140px;
@@ -18,21 +19,6 @@
   border-radius: 10px;
   background: #f8fafd;
   margin: 0;
-  padding: 12px 14px 18px 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  transition: border-color 0.2s, background 0.2s;
-}
-/* Moveable area drop zone styling */
-.moveable-area {
-  min-width: 220px;
-  min-height: 140px;
-  border: 2px dashed #666;
-  border-radius: 10px;
-  background: #f8fafd;
-  margin: 18px 0;
   padding: 12px 14px 18px 14px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   display: flex;
@@ -123,20 +109,55 @@
 }
 /* Width used for the PSA dropzone; other rules reference this so it's easy to adjust */
 :root { --psa-width: 180px; }
+/* Header base styling (consolidated) */
 header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 1000;
   background: var(--white);
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e1e1e5;
+  gap: 12px;
 }
 
 /* Removed empty body rule */
 html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto, "Helvetica Neue", Arial;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;}
 body{background:var(--bg);color:var(--black);display:flex;flex-direction:column;}
-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e1e1e5;gap:12px;position:sticky;top:0;z-index:50}
+/* Header: single canonical rule to avoid duplicate/contradictory position behavior */
+/* Remove duplicated ultra-specific header overrides; base header rule above is sufficient */
+
+/* Make the global search input obvious and wide enough */
+header input.search-input {
+  width: 320px !important;
+  max-width: 60vw !important;
+  background: #fff !important;
+  color: #000 !important;
+}
+
+/* Two-row header layout: top row for navigation/title, bottom row for search & controls */
+.header-top {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  width:100%;
+}
+.header-bottom {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+  padding-top:8px;
+  width:100%;
+}
+.header-bottom .search-wrap { flex:1; display:flex; justify-content:center; }
+.header-bottom .search-wrap input.search-input { width: min(640px, 70%); }
+.header-bottom .header-controls { margin-right: 12px; }
 .left-controls{display:flex;align-items:center;gap:8px}
 .btn{padding:10px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;display:inline-block;-webkit-tap-highlight-color:transparent}
 .btn-black{background:var(--black);color:var(--white)}
@@ -147,6 +168,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .btn-small{padding:6px 10px;font-size:0.9rem;border-radius:6px}
 .page-title{margin:8px 0 20px;font-size:1.6rem;text-align:center}
 main.container{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:20px;padding-top:calc(var(--header-height) + 12px);box-sizing:border-box}
+/* Force main container to not be an independent scroll container so the
+  document/body is the single scroll context; prevents nested scrolling
+  which can hide fixed headers in some browsers. */
+main.container{overflow:visible !important}
   .card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;width:100%;max-width:none;margin:0;}
 .center-col{display:flex;flex-direction:column;align-items:center;gap:12px}
 .hauptmenu{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 20px;color:#fff}
@@ -197,23 +222,10 @@ main.container{flex:1;display:flex;align-items:flex-start;justify-content:center
   padding: 24px 0;
 }
 /* TF buttons for Liste Technikflaschen: green with black writing */
-/* 2x4 grid for main menu buttons */
-/* 2 columns x 4 rows for main menu buttons */
-.button-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(4, auto);
-  gap: 24px;
-  margin: 32px 0;
-  justify-items: stretch;
-  align-items: stretch;
-}
-:root{
-  --bg:#f4f4f7; --greybtn:#d0d0d6; --purple:#7b4ce6; --black:#111; --white:#fff; --red:#cc2222; --gold:#ffd166; --yellow:#fff18f; --erk:#3b82f6;
-}
+/* Removed duplicate :root color variable block (already defined earlier) */
 html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto, "Helvetica Neue", Arial;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;}
 body{background:var(--bg);color:var(--black);display:flex;flex-direction:column;}
-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e1e1e5;gap:12px;position:fixed;top:0;left:0;right:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+/* (Duplicate header rule removed; canonical header rule defined earlier) */
 .left-controls{display:flex;align-items:center;gap:8px}
 .btn{padding:10px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600;display:inline-block;-webkit-tap-highlight-color:transparent}
 .btn-black{background:var(--black);color:var(--white)}
@@ -225,19 +237,11 @@ main.container{flex:1;display:block;padding:20px;width:100%;max-width:none;margi
 
 /* Let the document body scroll (not an inner main box). Add top padding so content
    is not hidden under the fixed header. Enable smooth iOS scrolling on the body. */
-body {
-  /* extra breathing room to ensure the fixed header never covers content;
-     increase the extra offset to compensate for any overlapping UI on iPad */
-  padding-top: calc(var(--header-height) + 32px);
-  -webkit-overflow-scrolling: touch;
-  overflow-y: auto;
-  /* ensure native scrolling places anchors below the fixed header */
-  scroll-padding-top: calc(var(--header-height) + 32px);
-}
+/* Deduplicated body/header padding logic handled by earlier body + main rules; removed nested block */
 
 /* Also ensure the document respects scroll padding at the root (helps fragment links) */
 html {
-  scroll-padding-top: calc(var(--header-height) + 32px);
+  scroll-padding-top: calc(var(--header-height) + 12px);
 }
 .card{background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(16,24,40,0.06);padding:18px;max-width:1200px;width:100%}
 .center-col{display:flex;flex-direction:column;align-items:center;gap:12px}
@@ -292,11 +296,15 @@ header input.search-input{
 }
 .psa-dropzone#einsatz-dropzone {
   position: fixed;
-  top: 140px;
+  /* Position directly below the header (uses JS-updated --header-height). This
+     makes the dropzone move down/up automatically when the header size changes
+     so it visually sits closer to the page title. */
+  top: calc(var(--header-height, 64px) + 12px);
   /* Respect iOS safe area inset on the right (notch/home indicator) */
   right: env(safe-area-inset-right, 0);
   width: calc(var(--psa-width) + env(safe-area-inset-right, 0));
-  height: calc(100vh - 140px);
+  /* Make height account for the header so the dropzone fills remaining viewport */
+  height: calc(100vh - (var(--header-height, 64px) + 12px));
   min-height: 400px;
   background: #ffeaea;
   border: 2px dashed var(--red);
@@ -337,7 +345,10 @@ header input.search-input{
   /* Avoid accidental horizontal scrolling from fixed/floating elements */
   /* Use touch-friendly vertical scrolling and prevent horizontal overflow caused by inner elements */
   html, body { overflow-x: hidden; }
-  main.container { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* Prevent nested scrolling on narrow screens: prefer document/body scrolling
+    so the fixed header remains consistently visible. Some browsers (Safari)
+    hide fixed headers when inner containers scroll. */
+  main.container { overflow-y: visible !important; -webkit-overflow-scrolling: auto !important; }
   /* Constrain areas container width to viewport (respect safe-area insets) */
   #areas-container { max-width: calc(100vw - 32px - env(safe-area-inset-left, 0) - env(safe-area-inset-right, 0)); box-sizing: border-box; padding: 0 8px; }
   .card { max-width: calc(100vw - 32px); box-sizing: border-box; }
@@ -366,6 +377,11 @@ header input.search-input{
   /* Constrain area content height so the page can scroll vertically */
   .moveable-area { max-height: calc(100vh - 180px); overflow-y: auto; }
 }
+
+/* Extra safety: ensure main.container never becomes an independent scroll
+   container which could hide the fixed header (Safari/iOS). This overrides
+   any media-query rules that make it scrollable. */
+main.container { overflow-y: visible !important; height: auto !important; }
 
 /* Simulated in-page fullscreen mode (used on iOS where native fullscreen + keyboard is problematic)
    Keep the header visible but compact and fixed so search/navigation remain accessible. */

@@ -11,13 +11,14 @@
   <meta name="apple-mobile-web-app-title" content="Feuerwehr Panel" />
   <link rel="manifest" href="manifest.webmanifest">
   <title>Feuerwehr Panel (SPA)</title>
-  <link rel="stylesheet" href="style.css" />
+  <!-- Cache-busting query to avoid stale SW/browser cache -->
+  <link rel="stylesheet" href="style.css?v=20251207_2" />
 </head>
-<body>
+<body data-server-no-reload>
   <header id="app-header"></header>
   <main id="app-main" class="container"></main>
   <div id="modal-root"></div>
-  <!-- Single consolidated SPA runtime -->
-  <script src="spa.js"></script>
+  <!-- Single consolidated SPA runtime (cache-busted) -->
+  <script src="spa.js?v=20251207_2"></script>
 </body>
 </html>
