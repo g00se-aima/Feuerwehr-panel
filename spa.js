@@ -124,10 +124,10 @@ function addClickToRemove(btn, callback) {
   clickToRemoveCallbacks.set(btn, callback);
   
   // Don't add if already present
-  if (btn.dataset.clickToRemoveEnabled === 'true') return;
+  if (btn.dataset.hasClickToRemove === 'true') return;
   
   // Mark immediately to prevent duplicate additions
-  btn.dataset.clickToRemoveEnabled = 'true';
+  btn.dataset.hasClickToRemove = 'true';
   
   // Ensure parent button has position:relative for absolute positioning BEFORE creating removeBtn
   if (window.getComputedStyle(btn).position === 'static') {
@@ -246,7 +246,15 @@ function addClickToRemove(btn, callback) {
   
   btn.addEventListener('dragstart', dragStartHandler);
   
-  // Store references for cleanup using WeakMap
+  // Store references for cleanup
+  btn._toggleExpandedHandler = buttonClickHandler;
+  btn._touchStartHandler = null; // Not used in current implementation
+  btn._outsideClickHandler = outsideClickHandler;
+  btn._dragStartHandler = dragStartHandler;
+  btn._collapseButton = collapseButton;
+  btn._removeBtn = removeBtn;
+  
+  // Also store in WeakMap for backward compatibility
   clickToRemoveHandlers.set(btn, {
     buttonClickHandler,
     removeClickHandler,
@@ -266,33 +274,58 @@ function addClickToRemove(btn, callback) {
  * @param {HTMLElement} btn - The button element
  */
 function removeClickToRemove(btn) {
-  if (btn.dataset.clickToRemoveEnabled !== 'true') return;
+  if (!btn || btn.dataset.hasClickToRemove !== 'true') return;
   
-  // Clean up event listeners using WeakMap
-  const handlers = clickToRemoveHandlers.get(btn);
-  if (handlers) {
-    btn.removeEventListener('click', handlers.buttonClickHandler);
-    document.removeEventListener('click', handlers.outsideClickHandler);
-    btn.removeEventListener('dragstart', handlers.dragStartHandler);
-    
-    // Collapse if expanded
-    if (handlers.collapseButton) {
-      handlers.collapseButton();
+  // Remove event listeners
+  if (btn._toggleExpandedHandler) {
+    btn.removeEventListener('click', btn._toggleExpandedHandler);
+    btn.removeEventListener('touchend', btn._toggleExpandedHandler);
+    delete btn._toggleExpandedHandler;
+  }
+  if (btn._touchStartHandler) {
+    btn.removeEventListener('touchstart', btn._touchStartHandler);
+    delete btn._touchStartHandler;
+  }
+  if (btn._outsideClickHandler) {
+    document.removeEventListener('click', btn._outsideClickHandler);
+    document.removeEventListener('touchend', btn._outsideClickHandler);
+    delete btn._outsideClickHandler;
+  }
+  if (btn._dragStartHandler) {
+    btn.removeEventListener('dragstart', btn._dragStartHandler);
+    delete btn._dragStartHandler;
+  }
+  
+  // Collapse if needed using stored function
+  if (btn._collapseButton && typeof btn._collapseButton === 'function') {
+    try {
+      btn._collapseButton();
+    } catch (e) {
+      // Fallback: manual cleanup
+      btn.style.transform = '';
+      btn.style.zIndex = '';
     }
-    
-    clickToRemoveHandlers.delete(btn);
   }
+  delete btn._collapseButton;
   
-  // Remove the remove button element
-  const removeBtn = btn.querySelector('.click-to-remove-btn');
-  if (removeBtn) {
-    removeBtn.remove();
+  // Clean up any existing remove button
+  const existingRemoveBtn = btn.querySelector('.click-to-remove-btn');
+  if (existingRemoveBtn) {
+    existingRemoveBtn.remove();
   }
+  // Also clean up stored reference
+  delete btn._removeBtn;
   
-  // Clean up callback
+  // Reset styles
+  btn.style.transform = '';
+  btn.style.zIndex = '';
+  
+  // Clean up WeakMap entries for backward compatibility
+  clickToRemoveHandlers.delete(btn);
   clickToRemoveCallbacks.delete(btn);
   
-  delete btn.dataset.clickToRemoveEnabled;
+  // Remove marker
+  delete btn.dataset.hasClickToRemove;
 }
 
 /**
@@ -309,7 +342,7 @@ function updateClickToRemoveState(btn, callback) {
     removeClickToRemove(btn);
   } else {
     // In different area - ensure click-to-remove is enabled
-    if (btn.dataset.clickToRemoveEnabled !== 'true' && typeof callback === 'function') {
+    if (btn.dataset.hasClickToRemove !== 'true' && typeof callback === 'function') {
       addClickToRemove(btn, callback);
     }
   }
