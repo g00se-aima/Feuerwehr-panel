@@ -204,10 +204,88 @@ function updateClickToRemoveState(btn) {
       const pageFile = getCurrentPageFile();
       const isListPage = /(^|\/)liste-/i.test(pageFile || '');
       const label = (btn.dataset && btn.dataset.fullLabel) ? btn.dataset.fullLabel : ((btn.textContent||'').trim());
+      const customId = btn.dataset && btn.dataset.customId;
       if (!isListPage && pageFile) {
         const id = (btn.dataset && btn.dataset.moveableId) ? String(btn.dataset.moveableId) : (label || '');
         try { removeMoveable(pageFile, id); } catch (_) {}
         if (btn.parentNode) btn.parentNode.removeChild(btn);
+        
+        // Remove from removed-* lists to restore the button on home page after refresh
+        // NOTE: Only update removed-* flags for PRE-DEFINED buttons. Custom buttons are tracked via isAssigned
+        // (checking if they're in any vehicle page's moveables), so just removing them from moveables is enough.
+        if (!customId) {
+          try {
+            const baseLabel = (btn.dataset && btn.dataset.fullLabel) || '';
+            let prefix = '';
+            
+            // Determine prefix: extract from baseLabel for pre-defined buttons
+            if (baseLabel) {
+              const match = baseLabel.match(/^([A-Z]+)/i);
+              if (match) {
+                prefix = match[1].toUpperCase();
+              }
+            }
+            
+            if (prefix === 'PA') {
+              let removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]');
+              const idx = removedPAs.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedPAs.splice(idx, 1);
+                localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+              }
+            } else if (prefix === 'FL') {
+              let removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]');
+              const idx = removedFLs.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedFLs.splice(idx, 1);
+                localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs));
+              }
+            } else if (prefix === 'TF') {
+              let removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]');
+              const idx = removedTFs.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedTFs.splice(idx, 1);
+                localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removedTFs));
+              }
+            } else if (prefix === 'FH') {
+              let removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]');
+              const idx = removedFHs.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedFHs.splice(idx, 1);
+                localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removedFHs));
+              }
+            } else if (prefix === 'AM') {
+              let removedAMs = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse') || '[]');
+              const idx = removedAMs.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedAMs.splice(idx, 1);
+                localStorage.setItem('removed_ams_liste_atemanschluesse', JSON.stringify(removedAMs));
+              }
+            } else if (prefix === 'SI') {
+              let removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]');
+              const idx = removedSis.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedSis.splice(idx, 1);
+                localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
+              }
+            } else if (prefix === 'X') {
+              let removedXs = JSON.parse(localStorage.getItem('removed_xs_liste_messgeraete') || '[]');
+              const idx = removedXs.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedXs.splice(idx, 1);
+                localStorage.setItem('removed_xs_liste_messgeraete', JSON.stringify(removedXs));
+              }
+            } else if (prefix === 'CSA') {
+              let removedCSAs = JSON.parse(localStorage.getItem('removed_csas_liste_csa') || '[]');
+              const idx = removedCSAs.indexOf(baseLabel);
+              if (idx !== -1) {
+                removedCSAs.splice(idx, 1);
+                localStorage.setItem('removed_csas_liste_csa', JSON.stringify(removedCSAs));
+              }
+            }
+          } catch (_) {}
+        }
+        
         return;
       }
       if (homeArea) {
@@ -315,6 +393,8 @@ window.registerArea = function(areaId, element) {
                 if (/^TF\s+\d+/.test(label)) return 'liste-technikflaschen.html';
                 if (/^Si\s+\d+/.test(label)) return 'liste-sicherheitstrupptaschen.html';
                 if (/^AM\s+\d+/.test(label)) return 'liste-atemanschluesse.html';
+                if (/^X\s+\d+/.test(label)) return 'liste-messgeraete.html';
+                if (/^CSA\s+\d+/.test(label)) return 'liste-csa.html';
               } catch(_) {}
               return '';
             })(),
@@ -326,8 +406,18 @@ window.registerArea = function(areaId, element) {
       // Update global removal/restoration flags for list inventories regardless of current page
       try {
         const label = (btn.dataset && btn.dataset.fullLabel) ? btn.dataset.fullLabel : ((btn.textContent||'').trim());
+        const customId = btn.dataset && btn.dataset.customId;
+        // CSA
+        if (label.startsWith('CSA ') || (customId && customId.startsWith('custom_csa_'))) {
+          let removedCSAs = [];
+          try { removedCSAs = JSON.parse(localStorage.getItem('removed_csas_liste_csa') || '[]'); } catch (e) {}
+          if (!removedCSAs.includes(label)) {
+            removedCSAs.push(label);
+            localStorage.setItem('removed_csas_liste_csa', JSON.stringify(removedCSAs));
+          }
+        }
         // Technikflaschen (TF)
-        if (/^TF\s+\d+$/i.test(label)) {
+        if (/^TF\s+\d+$/i.test(label) || (customId && customId.startsWith('custom_tf_'))) {
           let removed = [];
           try { removed = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]'); } catch(_) { removed = []; }
           const idx = removed.indexOf(label);
@@ -335,7 +425,7 @@ window.registerArea = function(areaId, element) {
           try { localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removed)); } catch(_) {}
         }
         // Fluchthauben (FH)
-        else if (/^FH\s+\d+$/i.test(label)) {
+        else if (/^FH\s+\d+$/i.test(label) || (customId && customId.startsWith('custom_fh_'))) {
           let removed = [];
           try { removed = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]'); } catch(_) { removed = []; }
           const idx = removed.indexOf(label);
@@ -343,16 +433,42 @@ window.registerArea = function(areaId, element) {
           try { localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removed)); } catch(_) {}
         }
         // PA
-        else if (/^PA\s+\d+/.test(label)) {
+        else if (/^PA\s+\d+/.test(label) || (customId && customId.startsWith('custom_pa_'))) {
           let removed = [];
           try { removed = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]'); } catch(_) { removed = []; }
           const base = (label.match(/^PA\s+\d+/i)||[''])[0] || label;
           const idx = removed.indexOf(base);
           if (areaId === 'pa-btn-list') { if (idx !== -1) removed.splice(idx,1); } else if (idx === -1) removed.push(base);
           try { localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removed)); } catch(_) {}
+          
+          // If it's a combined PA+FL button, also handle the FL removal
+          if (label.includes(' mit FL ')) {
+            const flMatch = label.match(/FL\s+(\d+)/);
+            if (flMatch) {
+              const flNumber = parseInt(flMatch[1], 10);
+              const paNumber = parseInt((label.match(/^PA\s+(\d+)/)||['',''])[1], 10);
+              
+              if (areaId !== 'pa-btn-list') {
+                // Button is being moved away from list, mark FL as removed
+                let removedFLs = [];
+                try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch(_) { removedFLs = []; }
+                const flLabel = `FL ${flNumber}`;
+                if (!removedFLs.includes(flLabel)) removedFLs.push(flLabel);
+                try { localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs)); } catch(_) {}
+              } else {
+                // Button is returning to list, unmark FL as removed
+                let removedFLs = [];
+                try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch(_) { removedFLs = []; }
+                const flLabel = `FL ${flNumber}`;
+                const flIdx = removedFLs.indexOf(flLabel);
+                if (flIdx !== -1) removedFLs.splice(flIdx, 1);
+                try { localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs)); } catch(_) {}
+              }
+            }
+          }
         }
         // Sicherheitstrupptaschen (Si)
-        else if (/^Si\s+\d+$/i.test(label)) {
+        else if (/^Si\s+\d+$/i.test(label) || (customId && customId.startsWith('custom_si_'))) {
           let removed = [];
           try { removed = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]'); } catch(_) { removed = []; }
           const idx = removed.indexOf(label);
@@ -360,13 +476,29 @@ window.registerArea = function(areaId, element) {
           try { localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removed)); } catch(_) {}
         }
         // Atemanschlüsse (AM)
-        else if (/^AM\s+\d+$/i.test(label)) {
+        else if (/^AM\s+\d+$/i.test(label) || (customId && customId.startsWith('custom_am_'))) {
           let removed = [];
           try { removed = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse') || '[]'); } catch(_) { removed = []; }
           const base = (label.match(/^AM\s+\d+/i)||[''])[0] || label;
           const idx = removed.indexOf(base);
           if (areaId === 'am-btn-list') { if (idx !== -1) removed.splice(idx,1); } else if (idx === -1) removed.push(base);
           try { localStorage.setItem('removed_ams_liste_atemanschluesse', JSON.stringify(removed)); } catch(_) {}
+        }
+        // FL (Atemluftflaschen) - handle both pre-defined and custom
+        else if (/^FL\s+\d+$/i.test(label) || (customId && customId.startsWith('custom_fl_'))) {
+          let removed = [];
+          try { removed = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch(_) { removed = []; }
+          const idx = removed.indexOf(label);
+          if (areaId === 'fl-btn-list') { if (idx !== -1) removed.splice(idx,1); } else if (idx === -1) removed.push(label);
+          try { localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removed)); } catch(_) {}
+        }
+        // X (Messgeräte) - handle both pre-defined and custom
+        else if (/^X\s+\d+$/i.test(label) || (customId && customId.startsWith('custom_x_'))) {
+          let removed = [];
+          try { removed = JSON.parse(localStorage.getItem('removed_xs_liste_messgeraete') || '[]'); } catch(_) { removed = []; }
+          const idx = removed.indexOf(label);
+          if (areaId === 'x-btn-list') { if (idx !== -1) removed.splice(idx,1); } else if (idx === -1) removed.push(label);
+          try { localStorage.setItem('removed_xs_liste_messgeraete', JSON.stringify(removed)); } catch(_) {}
         }
       } catch(_) {}
     }
@@ -409,23 +541,33 @@ window.makeButtonMoveable = function(btn, homeAreaId) {
         try { removeMoveable(pageFile, id); } catch (_) {}
         // Clear removed_* flags so item reappears in its list
         try {
-          if (/^PA\s+\d+/.test(label)) {
+          const customId = btn.dataset && btn.dataset.customId;
+          if (/^PA\s+\d+/.test(label) || (customId && customId.startsWith('custom_pa_'))) {
             const base = (label.match(/^PA\s+\d+/i)||[''])[0];
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_pas_liste_pa')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(base); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_pas_liste_pa', JSON.stringify(arr)); }
-          } else if (/^AM\s+\d+/.test(label)) {
+          } else if (/^AM\s+\d+/.test(label) || (customId && customId.startsWith('custom_am_'))) {
             const base = (label.match(/^AM\s+\d+/i)||[''])[0];
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(base); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_ams_liste_atemanschluesse', JSON.stringify(arr)); }
-          } else if (/^TF\s+\d+/.test(label)) {
+          } else if (/^TF\s+\d+/.test(label) || (customId && customId.startsWith('custom_tf_'))) {
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(arr)); }
-          } else if (/^FH\s+\d+/.test(label)) {
+          } else if (/^FH\s+\d+/.test(label) || (customId && customId.startsWith('custom_fh_'))) {
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(arr)); }
-          } else if (/^Si\s+\d+/.test(label)) {
+          } else if (/^Si\s+\d+/.test(label) || (customId && customId.startsWith('custom_si_'))) {
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(arr)); }
+          } else if (/^FL\s+\d+/.test(label) || (customId && customId.startsWith('custom_fl_'))) {
+            let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen')||'[]'); } catch(_) {}
+            if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(arr)); }
+          } else if (/^X\s+\d+/.test(label) || (customId && customId.startsWith('custom_x_'))) {
+            let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_xs_liste_messgeraete')||'[]'); } catch(_) {}
+            if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_xs_liste_messgeraete', JSON.stringify(arr)); }
+          } else if (/^CSA\s+\d+/.test(label) || (customId && customId.startsWith('custom_csa_'))) {
+            let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_csas_liste_csa')||'[]'); } catch(_) {}
+            if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_csas_liste_csa', JSON.stringify(arr)); }
           }
         } catch (_) {}
         if (btn.parentNode) btn.parentNode.removeChild(btn);
@@ -491,7 +633,12 @@ if (!window.VEHICLE_LIST) {
     ['4 LF10 1', '4-lf10-1.html'],
     ['4 TLF3000 1', '4-tlf3000-1.html'],
     ['5 HLF20 1', '5-hlf20-1.html'],
-    ['GWG', 'gwg.html']
+    ['GWG', 'gwg.html'],
+    ['Lager AGW', 'lager-hauptwache-container.html'],
+    ['Lager Hauptwache', 'lager-hauptwache.html'],
+    ['In Silschede', 'silschede.html'],
+    ['Für Silschede', 'fuer-silschede.html'],
+    ['Von Silschede', 'von-silschede.html']
   ];
 }
 
@@ -673,6 +820,18 @@ try {
                 if (removedPAs.indexOf(base) === -1) { removedPAs.push(base); try { localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs)); } catch(_) {} }
               }
             } catch(_){}
+            // X removed list
+            try {
+              const txt = (btn.dataset.fullLabel || btn.textContent || '').trim();
+              const xMatch = (txt || '').match(/X\s+(\d+)/i);
+              if (xMatch) {
+                const base = `X ${parseInt(xMatch[1],10)}`;
+                let removedXs = [];
+                try { removedXs = JSON.parse(localStorage.getItem('removed_xs_liste_messgeraete') || '[]'); } catch(_) { removedXs = []; }
+                removedXs = Array.isArray(removedXs) ? removedXs : [];
+                if (removedXs.indexOf(base) === -1) { removedXs.push(base); try { localStorage.setItem('removed_xs_liste_messgeraete', JSON.stringify(removedXs)); } catch(_) {} }
+              }
+            } catch(_){}
             // return to home area visually
             try {
               let homeArea = (btn && btn.dataset && btn.dataset.homeArea) ? btn.dataset.homeArea : null;
@@ -684,6 +843,8 @@ try {
                 else if (lbl.startsWith('TF ')) homeArea = 'tf-btn-list';
                 else if (lbl.startsWith('FH ')) homeArea = 'fh-btn-list';
                 else if (lbl.startsWith('AM ')) homeArea = 'am-btn-list';
+                else if (lbl.startsWith('X ')) homeArea = 'x-btn-list';
+                else if (lbl.startsWith('CSA ')) homeArea = 'csa-btn-list';
               }
               let homeContainer = null;
               try { homeContainer = document.getElementById(homeArea); } catch(_) { homeContainer = null; }
@@ -824,6 +985,12 @@ function removeMoveable(pageFile, idOrLabel) {
   list = dedupeMoveables(list);
   writeMoveables(pageFile, list);
 }
+
+// Export moveable helpers to global scope for cross-file access
+window.upsertMoveable = upsertMoveable;
+window.readMoveables = readMoveables;
+window.writeMoveables = writeMoveables;
+window.removeMoveable = removeMoveable;
 
 // Normalize/migrate any legacy `moveables_<slug>` keys to the canonical
 // `moveables_<slug>.html` form at startup. This avoids inconsistent key
@@ -1157,6 +1324,77 @@ function ensureUniqueSlug(base) {
     n++;
   }
   return slug;
+}
+
+// --- Button and Storage Helpers ---
+// List of all vehicle pages (used by all button list renders)
+const VEHICLE_PAGES = ['1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html','2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html','tlf-azubi.html','hauptwache.html'];
+
+// Get custom text for a button label from localStorage
+function getCustomButtonText(baseLabel) {
+  try {
+    const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+    return customButtonTexts[baseLabel] || baseLabel;
+  } catch (e) {
+    return baseLabel;
+  }
+}
+
+// Store custom text for a button label in localStorage
+function setCustomButtonText(baseLabel, customText) {
+  try {
+    const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+    customButtonTexts[baseLabel] = customText;
+    localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+  } catch (e) {}
+}
+
+// Get removed items from localStorage
+function getRemovedItems(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+// Set removed items in localStorage
+function setRemovedItems(key, items) {
+  try {
+    localStorage.setItem(key, JSON.stringify(items));
+  } catch (e) {}
+}
+
+// Get custom numbers from localStorage
+function getCustomNumbers(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+// Set custom numbers in localStorage
+function setCustomNumbers(key, numbers) {
+  try {
+    localStorage.setItem(key, JSON.stringify(numbers));
+  } catch (e) {}
+}
+
+// Extract numeric value from a button label for sorting (e.g., "PA 60" -> 60, "PA 60 mit FL 126" -> 60)
+function getButtonSortNumber(label) {
+  if (!label) return Infinity;
+  const match = String(label).match(/^[A-Za-z\s]+(\d+)/);
+  return match ? parseInt(match[1], 10) : Infinity;
+}
+
+// Sort moveables by their numeric value for consistent ordering
+function sortMoveablesByNumber(moveables) {
+  return (moveables || []).slice().sort((a, b) => {
+    const numA = getButtonSortNumber(a.label);
+    const numB = getButtonSortNumber(b.label);
+    return numA - numB;
+  });
 }
 
 function getCustomVehiclesForGroup(groupKey) {
@@ -1583,12 +1821,123 @@ function renderHauptwachePage() {
   // Build and show areas for this page
   try { renderVehiclePage('hauptwache'); } catch (_) {}
 } // <-- Add this closing brace to properly close renderHauptwachePage
+
+// --- Helper function to identify button location ---
+function getButtonLocation(btn) {
+  try {
+    // Try to find the closest parent section with id (page name)
+    const section = btn.closest('section[id]');
+    if (section && section.id) {
+      return section.id.replace(/-page$/, '').replace(/-/g, ' ');
+    }
+    // Check if it's on a vehicle page
+    const currentPage = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+    if (currentPage && currentPage !== 'hauptmenu') {
+      return currentPage.replace(/.html$/, '').replace(/-/g, ' ');
+    }
+    return 'einer Liste';
+  } catch (_) {
+    return 'einer Liste';
+  }
+}
+
+// --- Global search function to find button in all locations ---
+function findButtonGlobally(buttonText) {
+  try {
+    const buttonText_trim = (buttonText || '').trim();
+    if (!buttonText_trim) return null;
+    
+    // 1. Search in currently visible buttons on DOM
+    const allVisibleButtons = document.querySelectorAll('button.moveable-btn, button.pa-btn, button.fl-btn, button.tf-btn, button.fh-btn, button.am-btn, button.si-btn, button.x-btn, button.csa-btn');
+    for (const btn of allVisibleButtons) {
+      if ((btn.textContent || '').trim() === buttonText_trim) {
+        return {
+          found: true,
+          location: getButtonLocation(btn),
+          type: 'visible'
+        };
+      }
+    }
+    
+    // 2. Search in vehicle pages (moveables)
+    const vehiclePages = ['1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html','2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html','tlf-azubi.html','hauptwache.html'];
+    for (const pageFile of vehiclePages) {
+      try {
+        const moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]');
+        for (const m of moveables) {
+          if ((m.label || '').trim() === buttonText_trim) {
+            return {
+              found: true,
+              location: pageFile.replace(/.html$/, '').replace(/-/g, ' '),
+              type: 'vehicle_page'
+            };
+          }
+        }
+      } catch (_) {}
+    }
+    
+    // 3. Search in home list pages (removed buttons)
+    const homePages = ['liste_pa', 'liste_fl', 'liste_tf', 'liste_fh', 'liste_am', 'liste_si', 'liste_x', 'liste_csa'];
+    const prefixes = ['PA', 'FL', 'TF', 'FH', 'AM', 'Si', 'X', 'CSA'];
+    for (const prefix of prefixes) {
+      try {
+        const removedKey = `removed_${prefix.toLowerCase()}_liste_${prefix.toLowerCase()}`;
+        const removed = JSON.parse(localStorage.getItem(removedKey) || '[]');
+        for (const item of removed) {
+          const itemLabel = (typeof item === 'object' ? item.label : item) || '';
+          if (itemLabel.trim() === buttonText_trim) {
+            return {
+              found: true,
+              location: `liste ${prefix.toLowerCase()}`,
+              type: 'removed'
+            };
+          }
+        }
+      } catch (_) {}
+    }
+    
+    return { found: false };
+  } catch (_) {
+    return { found: false };
+  }
+}
+
+// Helper function to extract number from button text for sorting
+function extractButtonNumber(text) {
+  const match = text.match(/^\w+\s+(\d+)/);
+  return match ? parseInt(match[1], 10) : Infinity;
+}
+
+// Sort buttons in a container by their numeric value
+function sortButtonsByNumber(container) {
+  if (!container) return;
+  const buttons = Array.from(container.querySelectorAll('button'));
+  buttons.sort((a, b) => {
+    const numA = extractButtonNumber(a.textContent);
+    const numB = extractButtonNumber(b.textContent);
+    return numA - numB;
+  });
+  buttons.forEach(btn => container.appendChild(btn));
+}
+
 // --- Generic moveable button renderer for FL, TF, FH, etc. ---
 function renderMoveableButtons(container, numbers, prefix, className, styleFn) {
 
   numbers.forEach(num => {
     const btn = document.createElement('button');
-    btn.textContent = prefix + ' ' + num;
+    const defaultLabel = prefix + ' ' + num;
+    
+    // Check if there's a custom text stored for this button
+    let buttonText = defaultLabel;
+    try {
+      const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+      if (customButtonTexts[defaultLabel]) {
+        buttonText = customButtonTexts[defaultLabel];
+      }
+    } catch (e) {}
+    
+    btn.textContent = buttonText;
+    btn.dataset.fullLabel = defaultLabel;
     btn.setAttribute('draggable', 'true');
     btn.className = 'btn ' + (className || '');
     if (typeof styleFn === 'function') styleFn(btn, num);
@@ -1918,8 +2267,37 @@ function showAssignmentSidebar(moveableBtn) {
     const greyFL = [73,24,61,22,85,19,71,70,1,102,16,82,26,29,9,46,17,72,53,86,84,116,118,40,8,51,11,57,33,59,66,93,79,81,44,42,4,6,10,12,13,14,15,18,20,21,23,25,27,28,30,31,32,34,35,36,43,48,49,52,56,60,64,65,67,69,75,76,77,78,87,88,91,95,100,101,104,105,107,108,109,110,111,112,113,114,115,117];
     const all = [...new Set([...goldenFL, ...greyFL])];
     const available = all.filter(num => !assigned.has(`FL ${num}`) && !removedSet.has(`FL ${num}`));
+    
+    // Also include custom FL buttons (they have text labels, not just numbers)
+    let customFLButtons = [];
+    try { customFLButtons = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]'); } catch (e) {}
+    const customButtonTexts = {};
+    try {
+      const stored = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+      Object.assign(customButtonTexts, stored);
+    } catch (e) {}
+    
+    // Add custom buttons to available list if not assigned
+    const customAvailable = customFLButtons
+      .filter(btn => {
+        const text = customButtonTexts[btn.label] || btn.label;
+        return !assigned.has(text) && !removedSet.has(text);
+      })
+      .map(btn => ({
+        isCustom: true,
+        customId: btn.id,
+        text: customButtonTexts[btn.label] || btn.label,
+        color: btn.color || 'golden'
+      }));
+    
     const goldSet = new Set(goldenFL);
-    return { available: available.sort((a,b)=>a-b), isGold: (n)=>goldSet.has(n) };
+    const isGold = (n) => goldSet.has(n);
+    
+    return { 
+      available: available.sort((a,b)=>a-b),
+      customAvailable: customAvailable,
+      isGold: isGold
+    };
   }
 
   // Join option for PA
@@ -1971,17 +2349,37 @@ function showAssignmentSidebar(moveableBtn) {
       grid.style.display = 'flex';
       grid.style.flexWrap = 'wrap';
       grid.style.gap = '8px';
-      const { available, isGold } = computeAvailableFLNumbers();
+      const { available, customAvailable, isGold } = computeAvailableFLNumbers();
+      
+      // Create combined sorted list of pre-defined and custom buttons
+      const allButtons = [];
       available.forEach(num => {
+        allButtons.push({ type: 'predefined', num: num, text: 'FL ' + num });
+      });
+      customAvailable.forEach(btn => {
+        const match = btn.text.match(/(\d+)/);
+        const sortNum = match ? parseInt(match[1], 10) : 999999;
+        allButtons.push({ type: 'custom', num: sortNum, text: btn.text, color: btn.color, customId: btn.customId });
+      });
+      allButtons.sort((a, b) => a.num - b.num);
+      
+      allButtons.forEach(btnData => {
         const b = document.createElement('button');
-        b.textContent = 'FL ' + num;
+        b.textContent = btnData.text;
         b.className = 'btn fl-btn';
         b.style.minWidth = '64px';
         b.style.minHeight = '44px';
         b.style.fontWeight = '700';
         b.style.fontSize = '1.05rem';
         b.style.margin = '4px';
-        const styleKind = isGold(num) ? 'gold' : 'grey';
+        
+        let styleKind;
+        if (btnData.type === 'custom') {
+          styleKind = btnData.color === 'grey' ? 'grey' : 'gold';
+        } else {
+          styleKind = isGold(btnData.num) ? 'gold' : 'grey';
+        }
+        
         if (styleKind === 'gold') {
           b.style.border = '2px solid #bfa100';
           b.style.color = '#fff';
@@ -1991,18 +2389,24 @@ function showAssignmentSidebar(moveableBtn) {
           b.style.color = '#bbb';
           b.style.background = '#444';
         }
+        
         b.addEventListener('click', () => {
-          decorateCombinedPAInline(moveableBtn, num, styleKind);
-          updateRemovedFL('FL ' + num, true);
-          // Persist join state on Liste PA so it survives navigation if not assigned yet
-          try {
-            const current = window.location.hash.replace(/^#/, '') || 'hauptmenu';
-            if (current === 'liste-pa') {
-              const paMatch = (moveableBtn.textContent||'').match(/PA\s+(\d+)/i);
-              const paNum = paMatch ? parseInt(paMatch[1], 10) : null;
-              if (paNum) upsertCombinedPA(paNum, num);
-            }
-          } catch (_) {}
+          if (btnData.type === 'custom') {
+            decorateCombinedPAInline(moveableBtn, btnData.text, styleKind);
+            updateRemovedFL(btnData.text, true);
+          } else {
+            decorateCombinedPAInline(moveableBtn, btnData.num, styleKind);
+            updateRemovedFL('FL ' + btnData.num, true);
+            // Persist join state on Liste PA so it survives navigation if not assigned yet
+            try {
+              const current = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+              if (current === 'liste-pa') {
+                const paMatch = (moveableBtn.textContent||'').match(/PA\s+(\d+)/i);
+                const paNum = paMatch ? parseInt(paMatch[1], 10) : null;
+                if (paNum) upsertCombinedPA(paNum, btnData.num);
+              }
+            } catch (_) {}
+          }
           flSidebar.style.display = 'none';
           sidebar.style.display = 'none';
         });
@@ -2205,8 +2609,89 @@ function showAssignmentSidebar(moveableBtn) {
   editBtn.className = 'btn btn-purple';
   editBtn.style.marginBottom = '18px';
   editBtn.addEventListener('click', function() {
-    const newText = prompt('Neuer Text für Button:', moveableBtn.textContent);
-    if (newText) moveableBtn.textContent = newText;
+    const oldText = moveableBtn.textContent;
+    const newText = prompt('Neuer Text für Button:', oldText);
+    if (newText && newText !== oldText) {
+      // DON'T change the button text yet - first check for duplicates globally
+      
+      // Use dataset.fullLabel if available (canonical label), otherwise extract from oldText
+      let baseLabel = (moveableBtn.dataset && moveableBtn.dataset.fullLabel) || oldText;
+      
+      // If no fullLabel set, try to extract the base label from oldText
+      if (!baseLabel || baseLabel === oldText) {
+        const paMatch = oldText.match(/^PA\s+\d+/i);
+        const flMatch = oldText.match(/^FL\s+\d+/i);
+        const tfMatch = oldText.match(/^TF\s+\d+/i);
+        const fhMatch = oldText.match(/^FH\s+\d+/i);
+        const amMatch = oldText.match(/^AM\s+\d+/i);
+        const siMatch = oldText.match(/^Si\s+\d+/i);
+        const xMatch = oldText.match(/^X\s+\d+/i);
+        const csaMatch = oldText.match(/^CSA\s+\d+/i);
+        
+        if (paMatch) baseLabel = paMatch[0];
+        else if (flMatch) baseLabel = flMatch[0];
+        else if (tfMatch) baseLabel = tfMatch[0];
+        else if (fhMatch) baseLabel = fhMatch[0];
+        else if (amMatch) baseLabel = amMatch[0];
+        else if (siMatch) baseLabel = siMatch[0];
+        else if (xMatch) baseLabel = xMatch[0];
+        else if (csaMatch) baseLabel = csaMatch[0];
+      }
+      
+      // CHECK FOR DUPLICATES FIRST - before making any changes
+      const duplicateCheck = findButtonGlobally(newText);
+      if (duplicateCheck.found) {
+        alert(`${newText} existiert bereits in: ${duplicateCheck.location}`);
+        // Don't make any changes - return early
+        sidebar.style.display = 'none';
+        return;
+      }
+      
+      // NOW it's safe to make the change
+      moveableBtn.textContent = newText;
+      
+      // Store custom button text in localStorage using baseLabel as key
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[baseLabel] = newText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // If this is a custom button (has customId), update its label in the custom buttons list
+      const customId = moveableBtn.dataset && moveableBtn.dataset.customId;
+      if (customId) {
+        // Determine the button type from customId (e.g., "custom_pa_..." -> "pa")
+        const typeMatch = customId.match(/^custom_(\w+)_/);
+        if (typeMatch) {
+          const buttonType = typeMatch[1].toUpperCase();
+          const storageKey = 'custom_' + buttonType.toLowerCase() + '_buttons';
+          try {
+            let customButtons = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            customButtons = customButtons.map(btn => 
+              btn.id === customId ? { ...btn, label: newText } : btn
+            );
+            localStorage.setItem(storageKey, JSON.stringify(customButtons));
+            
+            // For FL buttons, preserve the color styling
+            if (buttonType === 'FL' && customButtons.find(b => b.id === customId)) {
+              const buttonData = customButtons.find(b => b.id === customId);
+              if (buttonData && buttonData.color === 'grey') {
+                moveableBtn.classList.remove('fl-gold');
+                moveableBtn.style.border = '2px solid #888';
+                moveableBtn.style.color = '#bbb';
+              } else {
+                moveableBtn.classList.add('fl-gold');
+                moveableBtn.style.border = '2px solid #4ade80';
+                moveableBtn.style.color = '#4ade80';
+              }
+            }
+          } catch (e) {}
+        }
+      }
+      
+      // Ensure dataset.fullLabel is preserved and set to the canonical base label
+      moveableBtn.dataset.fullLabel = baseLabel;
+    }
     sidebar.style.display = 'none';
   });
   sidebar.appendChild(editBtn);
@@ -2419,14 +2904,8 @@ function showAssignmentSidebar(moveableBtn) {
   const allDestinations = [].concat(vehiclesList, lagersList, othersList, sils);
 
   allDestinations.forEach(dest => {
-    // If the item being assigned is an FL, do not offer vehicle (black) destinations.
-    // However always allow the quick Silschede destinations (blue) even for FL.
-    try {
-      const text = (moveableBtn && (moveableBtn.textContent || '')).trim();
-      const isFL = text.startsWith('FL ');
-      const quickDestinations = ['Silschede', 'Von Silschede', 'Für Silschede'];
-      if (isFL && vehicleLabelSet.has(dest) && quickDestinations.indexOf(dest) === -1) return; // skip vehicle dests for FL (but keep quicks)
-    } catch (_) {}
+    // FL buttons can now be assigned to any destination, just like PA buttons
+    // (previously they were restricted to Lager destinations only)
     const abtn = document.createElement('button');
     abtn.textContent = dest;
     // Styling rules:
@@ -2496,20 +2975,25 @@ function showAssignmentSidebar(moveableBtn) {
   let filteredAreas = window.AREA_ASSIGNMENT_BUTTONS || window.AREA_TITLES || [];
         // Area restrictions:
         // - PA (and combined PA+FL) => only 'Atemschutzgeräte'
+        // - FL => only 'Atemluftflaschen' (regardless of destination)
         // - FH => only 'Fluchthauben'
         // - TF when assigning to a specific vehicle => 'Sprungretter'|'Technikflaschen'
-        // - FL when assigning to Lager Hauptwache or Lager AGW => only 'Atemluftflaschen'
+        // - X => only 'Messgeräte'
+        // - CSA => only 'CSA'
         try {
           const text = (moveableBtn && (moveableBtn.textContent || '')).trim();
           const isFH = text.startsWith('FH ');
           const isTF = text.startsWith('TF ');
           const isFL = text.startsWith('FL ');
+          const isX = text.startsWith('X ');
+          const isCSA = text.startsWith('CSA ');
           // Use helper functions defined earlier in this scope to detect PA/combined PA
           const isPAItem = (typeof isPA === 'function' && isPA(moveableBtn)) || (typeof isCombinedPA === 'function' && isCombinedPA(moveableBtn)) || (/^\s*PA\s+\d+/i).test(text) || (/\bPA\s+\d+\s+mit\s+FL\s+\d+/i).test(text);
           const isAMItem = (/^\s*AM\s+\d+/i).test(text);
           const isSiItem = (typeof isSi === 'function' && isSi(moveableBtn)) || (typeof isCombinedSi === 'function' && isCombinedSi(moveableBtn)) || (/^\s*Si\s+\d+/i).test(text) || (/\bSi\s+\d+\s+mit\s+FL\s+\d+/i).test(text);
           const isLagerDest = dest && (/lager/i.test(dest) || dest === 'Lager Hauptwache' || dest === 'Lager AGW');
-          if (isFL && isLagerDest) {
+          if (isFL) {
+            // FL buttons always go to Atemluftflaschen area, regardless of destination
             filteredAreas = ['Atemluftflaschen'];
           } else if (isSiItem) {
             filteredAreas = ['Sicherheitstrupptasche'];
@@ -2521,6 +3005,10 @@ function showAssignmentSidebar(moveableBtn) {
             }
           } else if (isFH) {
             filteredAreas = ['Fluchthauben'];
+          } else if (isX) {
+            filteredAreas = ['Messgeräte'];
+          } else if (isCSA) {
+            filteredAreas = ['CSA'];
           } else if (selectedVehicleFile && isTF) {
             filteredAreas = ['Sprungretter', 'Technikflaschen'];
           }
@@ -2539,18 +3027,33 @@ function showAssignmentSidebar(moveableBtn) {
             const fromPage = window.location.hash.replace(/^#/, '');
             const targetFile = selectedVehicleFile || fromPage;
             if (moveableBtn.parentNode) moveableBtn.parentNode.removeChild(moveableBtn);
-            // Build a clean label to persist (avoid duplicate badge text)
+            // Build a clean label to persist - use the DISPLAYED text (which might be custom edited)
             let labelToSave = (moveableBtn.textContent || '').trim();
             const comboSel = ((typeof parseCombined === 'function') ? parseCombined(moveableBtn) : null) || ((typeof parseCombinedSi === 'function') ? parseCombinedSi(moveableBtn) : null);
             if (comboSel) {
               if (comboSel.pa) labelToSave = `PA ${comboSel.pa} mit FL ${comboSel.fl}`;
               else if (comboSel.si) labelToSave = `Si ${comboSel.si} mit FL ${comboSel.fl}`;
             }
+            
+            // Extract and preserve the canonical base label from fullLabel or labelToSave
+            let baseLabel = '';
+            try {
+              const fullLabel = (moveableBtn.dataset && moveableBtn.dataset.fullLabel) || labelToSave;
+              const baseMatch = fullLabel.match(/^(PA|FL|TF|FH|AM|Si|X|CSA)\s+(\d+)/i);
+              if (baseMatch) {
+                const prefix = baseMatch[1].toUpperCase();
+                const num = baseMatch[2];
+                baseLabel = `${prefix} ${num}`;
+              }
+            } catch (_) {}
+            
             const idToUse = (moveableBtn && moveableBtn.dataset && moveableBtn.dataset.moveableId) ? moveableBtn.dataset.moveableId : makeMoveableId();
             // Use canonical upsert (handles dedupe by label/id)
+            // Include baseLabel for future reference and to help with filtering
             upsertMoveable(targetFile, {
               id: idToUse,
               label: labelToSave,
+              baseLabel: baseLabel,
               areaId,
               areaTitle,
               className: moveableBtn.className,
@@ -2593,6 +3096,63 @@ function showAssignmentSidebar(moveableBtn) {
               if (current === 'liste-pa' && comboSel && comboSel.pa) removeCombinedPA(comboSel.pa);
               if (current === 'liste-sicherheitstrupptaschen' && comboSel && comboSel.si) { try { removeCombinedSi(comboSel.si); } catch (_) {} }
             } catch (_) {}
+            // Add button to the appropriate removed list so it doesn't reappear on home page after refresh
+            try {
+              if (baseLabel) {
+                const prefix = baseLabel.match(/^([A-Z]+)/i)[1].toUpperCase();
+                
+                // Add to appropriate removed list
+                if (prefix === 'PA') {
+                  let removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]');
+                  if (!removedPAs.includes(baseLabel)) {
+                    removedPAs.push(baseLabel);
+                    localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+                  }
+                } else if (prefix === 'X') {
+                  let removedXs = JSON.parse(localStorage.getItem('removed_xs_liste_messgeraete') || '[]');
+                  if (!removedXs.includes(baseLabel)) {
+                    removedXs.push(baseLabel);
+                    localStorage.setItem('removed_xs_liste_messgeraete', JSON.stringify(removedXs));
+                  }
+                } else if (prefix === 'FL') {
+                  let removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]');
+                  if (!removedFLs.includes(baseLabel)) {
+                    removedFLs.push(baseLabel);
+                    localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs));
+                  }
+                } else if (prefix === 'TF') {
+                  let removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]');
+                  if (!removedTFs.includes(baseLabel)) {
+                    removedTFs.push(baseLabel);
+                    localStorage.setItem('removed_tfs_liste_technikflaschen', JSON.stringify(removedTFs));
+                  }
+                } else if (prefix === 'FH') {
+                  let removedFHs = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben') || '[]');
+                  if (!removedFHs.includes(baseLabel)) {
+                    removedFHs.push(baseLabel);
+                    localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(removedFHs));
+                  }
+                } else if (prefix === 'AM') {
+                  let removedAMs = JSON.parse(localStorage.getItem('removed_ams_liste_atemanschluesse') || '[]');
+                  if (!removedAMs.includes(baseLabel)) {
+                    removedAMs.push(baseLabel);
+                    localStorage.setItem('removed_ams_liste_atemanschluesse', JSON.stringify(removedAMs));
+                  }
+                } else if (prefix === 'SI') {
+                  let removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]');
+                  if (!removedSis.includes(baseLabel)) {
+                    removedSis.push(baseLabel);
+                    localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
+                  }
+                } else if (prefix === 'CSA') {
+                  let removedCSAs = JSON.parse(localStorage.getItem('removed_csas_liste_csa') || '[]');
+                  if (!removedCSAs.includes(baseLabel)) {
+                    removedCSAs.push(baseLabel);
+                    localStorage.setItem('removed_csas_liste_csa', JSON.stringify(removedCSAs));
+                  }
+                }
+              }
+            } catch (err) {}
             areaSidebar.style.display = 'none';
           };
           btn.addEventListener('click', areaSelectHandler);
@@ -2878,6 +3438,8 @@ window.pages = {
       { label: 'Liste Technikflaschen', page: 'liste-technikflaschen' },
       { label: 'Liste Sicherheitstrupptaschen', page: 'liste-sicherheitstrupptaschen' },
   // ERK area removed
+      { label: 'Liste Messgeräte', page: 'liste-messgeraete' },
+      { label: 'Liste CSA', page: 'liste-csa' },
       { label: 'CSA', page: 'csa' },
       { label: 'Messgeräte', page: 'messgeraete' },
       { label: 'Atemschutzeinsatz', page: 'atemschutzeinsatz' },
@@ -2940,15 +3502,23 @@ window.pages = {
     title: 'Liste Sicherheitstrupptaschen',
     content: `<div class="card"><div id="si-btn-list"></div></div>`
   },
+  'liste-messgeraete': {
+    title: 'Liste Messgeräte',
+    content: `<div class="card"><div id="x-btn-list"></div></div>`
+  },
+  'liste-csa': {
+    title: 'Liste CSA',
+    content: `<div class="card"><div id="csa-btn-list"></div></div>`
+  },
   // ERK page removed
   
   'csa': {
     title: 'CSA',
-    content: `<div class="card" id="app"></div>`
+    content: `<div class="card"><div id="csa-btn-list"></div></div>`
   },
   'messgeraete': {
     title: 'Messgeräte',
-    content: `<h1 class="page-title">Messgeräte</h1>`
+    content: `<div class="card"><div id="x-btn-list"></div></div>`
   },
   'atemschutzeinsatz': {
     title: 'Atemschutzeinsatz',
@@ -3027,17 +3597,17 @@ window.pages = {
       </div>
   <!-- Title shown in header; removed duplicate page title here -->
       <div class="page-buttons" style="margin-bottom:18px">
-    <button class="btn btn-grey" style="font-size:1.1rem" onclick="navigate('lager-hauptwache-container')">Lager AGW</button>
-    <button class="btn btn-blue" style="font-size:1.1rem" onclick="navigate('silschede')">Silschede</button>
-  <button class="btn btn-black" style="color:#c0c0c0;border:2px solid #777;font-size:1.1rem" onclick="navigate('liste-pa')">PA</button>
-  <button class="btn fl-btn gold" style="background:#bfa100;color:#fff;border:2px solid #bfa100;font-weight:700;margin:6px;min-width:54px;min-height:44px;font-size:1.1rem" onclick="navigate('liste-atemluftflaschen')">Atemluftflaschen</button>
-  <button class="btn am-btn" style="background:#fff;color:#000;border:1px solid #000;font-size:1.1rem" onclick="navigate('liste-atemanschluesse')">Atemanschlüsse</button>
-  <button class="btn btn-black" style="color:var(--gold);border:2px solid #b8860b;font-size:1.1rem" onclick="navigate('liste-fluchthauben')">Fluchthauben</button>
-  <button class="btn tf-btn" style="background:#176a2a;color:#fff;border:2px solid #15511f;font-size:1.1rem" onclick="navigate('liste-technikflaschen')">Technikflaschen</button>
-  <button class="btn btn-black" style="color:lime;border:2px solid lime;font-size:1.1rem" onclick="navigate('liste-sicherheitstrupptaschen')">Sicherheitstrupptaschen</button>
+    <button class="btn btn-grey" style="font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('lager-hauptwache-container')">Lager AGW</button>
+    <button class="btn btn-blue" style="font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('silschede')">Silschede</button>
+  <button class="btn btn-black" style="color:#c0c0c0;font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('liste-pa')">PA</button>
+  <button class="btn fl-btn gold" style="background:#bfa100;color:#fff;font-size:1.1rem;min-width:180px;padding:12px;border:none;margin:0" onclick="navigate('liste-atemluftflaschen')">Atemluftflaschen</button>
+  <button class="btn am-btn" style="background:#fff;color:#000;font-size:1.1rem;min-width:180px;padding:12px;border:2px solid #000" onclick="navigate('liste-atemanschluesse')">Atemanschlüsse</button>
+  <button class="btn btn-black" style="color:var(--gold);font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('liste-fluchthauben')">Fluchthauben</button>
+  <button class="btn tf-btn" style="background:#176a2a;color:#fff;font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('liste-technikflaschen')">Technikflaschen</button>
+  <button class="btn btn-black" style="color:lime;font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('liste-sicherheitstrupptaschen')">Sicherheitstrupptaschen</button>
   <!-- ERK Geräte removed -->
-    <button class="btn" style="background:orange;color:#000;border:1px solid #000;font-size:1.1rem" onclick="navigate('csa')">CSA</button>
-    <button class="btn" style="background:#6b3e26;color:#fff;border:1px solid #4e2b18;font-size:1.1rem" onclick="navigate('messgeraete')">Messgeräte</button>
+    <button class="btn" style="background:orange;color:#000;font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('csa')">CSA</button>
+    <button class="btn" style="background:#6b3e26;color:#fff;font-size:1.1rem;min-width:180px;padding:12px;border:none" onclick="navigate('messgeraete')">Messgeräte</button>
       </div>
   <button class="btn btn-red-black" onclick="navigate('atemschutzeinsatz')" style="margin-bottom:12px">Atemschutzeinsatz</button>
       <div class="small-footer" style="margin-top:18px;text-align:center;color:#666;font-size:0.9rem">
@@ -3171,12 +3741,6 @@ function collectAllVehicles() {
       });
     });
   } catch (_) {}
-  // static location pages for Silschede
-  items.push(
-    { label: 'In Silschede', pageKey: 'silschede', pageFile: 'silschede.html' },
-    { label: 'Für Silschede', pageKey: 'fuer-silschede', pageFile: 'fuer-silschede.html' },
-    { label: 'Von Silschede', pageKey: 'von-silschede', pageFile: 'von-silschede.html' }
-  );
   // dedupe by label then by pageKey
   const seen = new Set();
   const out = [];
@@ -3186,8 +3750,7 @@ function collectAllVehicles() {
     seen.add(key);
     out.push(it);
   });
-  // sort by label naturally
-  out.sort((a,b) => (a.label||'').localeCompare(b.label||'', 'de')); 
+  // preserve insertion order (from VEHICLE_LIST)
   return out;
 }
 
@@ -3515,15 +4078,15 @@ function setupGlobalSearch() {
         });
       } catch (e) {}
     }
-    // Search some persistent removed-lists
-    try {
-      let removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]');
-      (removedPAs||[]).forEach(label => { if (label.toLowerCase().includes(q)) results.push({type:'button', title: label, page: 'liste-pa.html', snippet: 'Entfernt'}); });
-    } catch (e) {}
-    try {
-      let removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]');
-      (removedTFs||[]).forEach(label => { if (label.toLowerCase().includes(q)) results.push({type:'button', title: label, page: 'liste-technikflaschen.html', snippet: 'Entfernt'}); });
-    } catch (e) {}
+    // Search some persistent removed-lists (COMMENTED OUT: removed buttons should not appear in search)
+    // try {
+    //   let removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]');
+    //   (removedPAs||[]).forEach(label => { if (label.toLowerCase().includes(q)) results.push({type:'button', title: label, page: 'liste-pa.html', snippet: 'Entfernt'}); });
+    // } catch (e) {}
+    // try {
+    //   let removedTFs = JSON.parse(localStorage.getItem('removed_tfs_liste_technikflaschen') || '[]');
+    //   (removedTFs||[]).forEach(label => { if (label.toLowerCase().includes(q)) results.push({type:'button', title: label, page: 'liste-technikflaschen.html', snippet: 'Entfernt'}); });
+    // } catch (e) {}
 
     // 2. Search SPA page definitions (avoid fetching separate HTML files)
     try {
@@ -3667,7 +4230,11 @@ function renderPage(page) {
   } else if (page === 'liste-pa') {
     main.innerHTML = `
       <div class="card center-col">
-        <h1 class="page-title">${pageObj.title}</h1>
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-pa-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-pa-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
         ${pageObj.content || ''}
       </div>
     `;
@@ -3675,7 +4242,11 @@ function renderPage(page) {
   } else if (page === 'liste-atemluftflaschen') {
     main.innerHTML = `
       <div class="card center-col">
-        <h1 class="page-title">${pageObj.title}</h1>
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-fl-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-fl-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
         ${pageObj.content || ''}
       </div>
     `;
@@ -3683,7 +4254,11 @@ function renderPage(page) {
   } else if (page === 'liste-technikflaschen') {
     main.innerHTML = `
       <div class="card center-col">
-        <h1 class="page-title">${pageObj.title}</h1>
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-tf-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-tf-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
         ${pageObj.content || ''}
       </div>
     `;
@@ -3691,7 +4266,11 @@ function renderPage(page) {
   } else if (page === 'liste-atemanschluesse') {
     main.innerHTML = `
       <div class="card center-col">
-        <h1 class="page-title">${pageObj.title}</h1>
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-am-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-am-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
         ${pageObj.content || ''}
       </div>
     `;
@@ -3699,7 +4278,11 @@ function renderPage(page) {
   } else if (page === 'liste-fluchthauben') {
     main.innerHTML = `
       <div class="card center-col">
-        <h1 class="page-title">${pageObj.title}</h1>
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-fh-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-fh-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
         ${pageObj.content || ''}
       </div>
     `;
@@ -3707,11 +4290,63 @@ function renderPage(page) {
   } else if (page === 'liste-sicherheitstrupptaschen') {
     main.innerHTML = `
       <div class="card center-col">
-        <h1 class="page-title">${pageObj.title}</h1>
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-si-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-si-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
         ${pageObj.content || ''}
       </div>
     `;
     renderSIListePage();
+  } else if (page === 'liste-messgeraete') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-x-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-x-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderXListePage();
+  } else if (page === 'messgeraete') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-x-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-x-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderXListePage();
+  } else if (page === 'liste-csa') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-csa-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-csa-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderCSAListePage();
+  } else if (page === 'csa') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;margin-bottom:12px">
+          <h1 class="page-title" style="margin:0;flex:1">${pageObj.title}</h1>
+          <button id="add-csa-btn" class="btn" style="background:#4ade80;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">+</button>
+          <button id="remove-csa-btn" class="btn" style="background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:1.2rem;font-weight:bold;cursor:pointer;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">−</button>
+        </div>
+        ${pageObj.content || ''}
+      </div>
+    `;
+    renderCSAListePage();
   } else if (page === 'nummern-psa') {
     main.innerHTML = `
       <div class="card center-col">
@@ -3840,9 +4475,23 @@ function renderVehiclePage(page) {
       if (window.areas && window.areas[personalAreaId]) delete window.areas[personalAreaId];
     }
   } catch (_) {}
+  // For Klutertbad, only show Atemschutzgeräte and Atemschutzmasken areas
+  if (page === 'klutertbad') {
+    const allowedAreaIds = new Set(['atemschutzger-te', 'atemschutzmasken']);
+    Array.from(mainContainer.querySelectorAll('.moveable-area')).forEach(area => {
+      try {
+        if (area.dataset && !allowedAreaIds.has(area.dataset.areaId)) {
+          if (area.parentNode) area.parentNode.removeChild(area);
+          if (window.areas && window.areas[area.dataset.areaId]) delete window.areas[area.dataset.areaId];
+        }
+      } catch (_) {}
+    });
+  }
   // Restore assigned moveables for this page
   let moveables = [];
   try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+  // Sort moveables by their numeric value for consistent ordering
+  moveables = sortMoveablesByNumber(moveables);
   moveables.forEach(m => {
   const areaRoot = (typeof window.getArea === 'function' ? window.getArea(m.areaId) : null) ||
            mainContainer.querySelector(`.moveable-area[data-area-id="${m.areaId}"]`);
@@ -3911,6 +4560,8 @@ function renderVehiclePage(page) {
         else if (from.includes('liste-technikflaschen') || from.includes('liste-technikflaschen')) homeArea = 'tf-btn-list';
   else if (from.includes('liste-fluchthauben') || from.includes('liste-fluchthauben')) homeArea = 'fh-btn-list';
   else if (from.includes('liste-atemanschluesse') || from.includes('liste-atemanschluesse')) homeArea = 'am-btn-list';
+  else if (from.includes('liste-messgeraete') || from.includes('liste-messgeraete')) homeArea = 'x-btn-list';
+  else if (from.includes('liste-csa') || from.includes('liste-csa')) homeArea = 'csa-btn-list';
         // ERK list removed — no special home area
       } catch (_) {}
       if (!homeArea) {
@@ -3921,6 +4572,8 @@ function renderVehiclePage(page) {
   else if (lbl.startsWith('TF ')) homeArea = 'tf-btn-list';
   else if (lbl.startsWith('FH ')) homeArea = 'fh-btn-list';
   else if (lbl.startsWith('AM ')) homeArea = 'am-btn-list';
+  else if (lbl.startsWith('X ')) homeArea = 'x-btn-list';
+  else if (lbl.startsWith('CSA ')) homeArea = 'csa-btn-list';
         // ERK labels no longer have a dedicated home list
       }
       // Default to the stored area id if we still don't know
@@ -3935,20 +4588,35 @@ function renderVehiclePage(page) {
 }
 // --- Example: render FL and TF pages with moveable buttons and sidebar ---
 function renderFLListePage() {
-  // Golden and grey FL numbers (source from standalone HTML)
+  // Golden and grey FL numbers (source from standalone HTML), plus custom from localStorage
   const goldenFL = [126,212,202,149,209,173,164,156,154,196,163,216,205,181,203,208,160,227,136,120,188,218,225,177,153,198,138,127,215,213,192,174,206,158,210,140,130,155,190,221,178,143,122,180,171,175,131,152,128,172,129,169,123,199,219,229,194,157,195,207,220,124,226,224,197,161,170,201,119,193,183,214,121,125,159,135,176,139,179,141,142,184,145,185,144,186,146,147,189,148,191,150,200,151,204,162,211,165,217,166,222,167,223,168,228,182,238,137,187,8,43,57,93,167,189,211,289];
   const greyFL = [73,24,61,22,85,19,71,70,1,102,16,82,26,29,9,46,17,72,53,86,84,116,118,40,8,51,11,57,33,59,66,93,79,81,44,42,4,6,10,12,13,14,15,18,20,21,23,25,27,28,30,31,32,34,35,36,43,48,49,52,56,60,64,65,67,69,75,76,77,78,87,88,91,95,100,101,104,105,107,108,109,110,111,112,113,114,115,117];
+  let customFLNumbers = [];
+  try { customFLNumbers = JSON.parse(localStorage.getItem('custom_fl_numbers') || '[]'); } catch (e) {}
+  // Add custom FL numbers to appropriate arrays based on whether they're gold or grey (default to gold if unknown)
+  customFLNumbers.forEach(n => {
+    if (!goldenFL.includes(n) && !greyFL.includes(n)) goldenFL.push(n);
+  });
   let assignedFLLabels = [];
   const vehiclePages = [
     '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
-    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
   ];
   vehiclePages.forEach(page => {
     const moveablesKey = moveablesKeyFor(page);
     let moveables = [];
     try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
     moveables.forEach(m => {
-      if (m && m.label && /^FL\s+\d+/.test(m.label)) assignedFLLabels.push(m.label.trim());
+      if (m && m.label) {
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^FL\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^FL\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedFLLabels.push(baseLabel);
+        }
+      }
     });
   });
   // Also filter out FLs that have been removed from this page (persistently)
@@ -3965,12 +4633,19 @@ function renderFLListePage() {
     return !assignedFLLabels.includes(label) && !removedFLs.includes(label);
   });
   // Align with baseline: no fallback when all are removed; keep list empty
+  unassignedGolden.sort((a, b) => a - b);
+  unassignedGrey.sort((a, b) => a - b);
 
   const container = document.getElementById('fl-btn-list');
   if (container) container.innerHTML = '';
   // Register the fl-btn-list as a moveable area (for home logic)
   let flBtnListArea = container;
-  if (container && !container.classList.contains('moveable-area')) {
+  // Check if the moveable-area wrapper already exists
+  const existingFlWrapper = container ? container.parentNode : null;
+  if (existingFlWrapper && existingFlWrapper.classList.contains('moveable-area') && existingFlWrapper.dataset.areaId === 'fl-btn-list') {
+    flBtnListArea = existingFlWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
     const wrapper = document.createElement('div');
     wrapper.className = 'moveable-area';
     wrapper.dataset.areaId = 'fl-btn-list';
@@ -3982,7 +4657,7 @@ function renderFLListePage() {
   if (window.renderMoveableButtons) {
     // Golden
     window.renderMoveableButtons(container, unassignedGolden, 'FL', 'fl-btn fl-gold', function(btn, num) {
-      btn.style.border = '2px solid #bfa100';
+      btn.style.border = '2px solid #000';
       btn.style.color = '#fff';
       btn.style.background = '#bfa100';
       btn.style.fontWeight = 'bold';
@@ -4014,13 +4689,20 @@ function renderFLListePage() {
 
   // Render removed FLs in the FL area (if present on this page)
   const flArea = document.querySelector('.moveable-area[data-area-id="fl"] .area-content');
-  if (flArea) flArea.innerHTML = '';
   if (flArea) {
     const removedButNotAssigned = removedFLs.filter(label => !assignedFLLabels.includes(label));
     const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('FL ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Remove old buttons first (by class, not innerHTML) to avoid flicker
+    flArea.querySelectorAll('button.fl-btn').forEach(btn => btn.remove());
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
     removedNumbers.forEach(num => {
       const btn = document.createElement('button');
-      btn.textContent = 'FL ' + num;
+      const defaultLabel = 'FL ' + num;
+      btn.textContent = getCustomButtonText(defaultLabel);
       btn.className = 'btn fl-btn fl-grey';
       btn.style.border = '2px solid #888';
       btn.style.color = '#bbb';
@@ -4031,41 +4713,241 @@ function renderFLListePage() {
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
       const flDblClickHandler = function() {
-        let removedFLs = [];
-        try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch (e) {}
+        const removed = getRemovedItems('removed_fls_liste_atemluftflaschen');
         const label = 'FL ' + num;
-        const idx = removedFLs.indexOf(label);
+        const idx = removed.indexOf(label);
         if (idx !== -1) {
-          removedFLs.splice(idx, 1);
-          localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs));
+          removed.splice(idx, 1);
+          setRemovedItems('removed_fls_liste_atemluftflaschen', removed);
           renderFLListePage();
         }
       };
       // Don't add click-to-remove for removed area buttons
-      flArea.appendChild(btn);
+      fragment.appendChild(btn);
     });
-    const searchInput = document.getElementById('global-search');
-    if (searchInput) {
-      const event = new Event('input', { bubbles: true });
-      searchInput.dispatchEvent(event);
+    
+    // Append all new buttons at once
+    flArea.appendChild(fragment);
+  }
+  // Render custom FL buttons created via "+" button
+  let customFLButtons = [];
+  try { customFLButtons = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]'); } catch (e) {}
+  let customButtonTexts = {};
+  try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+  const flBtnList = document.getElementById('fl-btn-list');
+  customFLButtons.forEach(customBtn => {
+    // Check if this custom button is already assigned somewhere
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned && flBtnList) {
+      const btn = document.createElement('button');
+      const savedText = customButtonTexts[customBtn.label];
+      btn.textContent = savedText || 'FL';
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.dataset.flColor = customBtn.color || 'golden';
+      
+      // Apply color styling based on stored color
+      if (customBtn.color === 'grey') {
+        btn.className = 'btn fl-btn';
+        btn.style.border = '2px solid #888';
+        btn.style.color = '#bbb';
+        btn.style.background = '#444';
+      } else {
+        btn.className = 'btn fl-btn';
+        btn.style.border = '2px solid #bfa100';
+        btn.style.color = '#fff';
+        btn.style.background = '#bfa100';
+      }
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fl-btn-list');
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      flBtnList.appendChild(btn);
     }
+  });
+  // Update global search highlighting after render
+  const searchInput = document.getElementById('global-search');
+  if (searchInput) {
+    const event = new Event('input', { bubbles: true });
+    searchInput.dispatchEvent(event);
+  }
+  // Add handler for "+" button to create new FL
+  const addFLBtn = document.getElementById('add-fl-btn');
+  if (addFLBtn && !addFLBtn.dataset.flClickWired) {
+    addFLBtn.dataset.flClickWired = '1';
+    const handleAddFL = function() {
+      // Visual feedback: scale the button
+      addFLBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addFLBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check if "FL" already exists globally
+      const existsCheck = findButtonGlobally('FL');
+      if (existsCheck.found) {
+        alert(`FL existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Ask user to choose golden or grey with options
+      const colorChoice = prompt('Flasche Farbe wählen:\n1 = Golden\n2 = Grau', '1');
+      if (colorChoice === null) {
+        // User clicked Cancel, abort
+        return;
+      }
+      const flColor = colorChoice === '2' ? 'grey' : 'golden';
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_fl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list with color - use buttonId as label for uniqueness
+      let customButtons = [];  
+      try { customButtons = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: buttonId, color: flColor });
+      localStorage.setItem('custom_fl_buttons', JSON.stringify(customButtons));
+      
+      // Create a generic "FL" button with the chosen color
+      const btn = document.createElement('button');
+      btn.textContent = 'FL';
+      btn.className = 'btn fl-btn';
+      
+      // Apply color styling
+      if (flColor === 'golden') {
+        btn.style.border = '2px solid #000';
+        btn.style.color = '#fff';
+        btn.style.background = '#bfa100';
+      } else {
+        btn.style.border = '2px solid #888';
+        btn.style.color = '#bbb';
+        btn.style.background = '#444';
+      }
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'FL';
+      btn.dataset.customId = buttonId;
+      btn.dataset.flColor = flColor;
+      
+      // Wire up click handler for sidebar BEFORE adding to DOM
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
+      
+      // Make it moveable and add to DOM
+      const flBtnList = document.getElementById('fl-btn-list');
+      if (flBtnList) {
+        flBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fl-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(flBtnList);
+      }
+    };
+    addFLBtn.addEventListener('click', handleAddFL);
+  }
+  
+  // Sort FL buttons by number after all buttons are rendered
+  const flList = document.getElementById('fl-btn-list');
+  if (flList) sortButtonsByNumber(flList);
+  
+  // Add handler for "-" button to remove the last FL
+  const removeFLBtn = document.getElementById('remove-fl-btn');
+  if (removeFLBtn && !removeFLBtn.dataset.flRemoveWired) {
+    removeFLBtn.dataset.flRemoveWired = '1';
+    const handleRemoveFL = function() {
+      // Visual feedback: scale the button
+      removeFLBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removeFLBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get custom FL buttons
+      let customFLButtons = [];
+      try { customFLButtons = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]'); } catch (e) {}
+      
+      // Remove the last custom button if any exist
+      if (customFLButtons.length > 0) {
+        const removedButton = customFLButtons.pop();
+        localStorage.setItem('custom_fl_buttons', JSON.stringify(customFLButtons));
+        
+        // Also remove any stored custom text for this button
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (removedButton.label && customButtonTexts[removedButton.label]) {
+            delete customButtonTexts[removedButton.label];
+            localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+          }
+        } catch (e) {}
+        
+        // Re-render the page
+        if (typeof renderFLListePage === 'function') {
+          renderFLListePage();
+        }
+      }
+    };
+    removeFLBtn.addEventListener('click', handleRemoveFL);
   }
 }
 
 function renderTFListePage() {
-  // Correct TF numbers and styles from original HTML
-  const tfNumbers = [117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136];
+  // Correct TF numbers and styles from original HTML, plus custom from localStorage
+  const baseTFNumbers = [117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136];
+  let customTFNumbers = [];
+  try { customTFNumbers = JSON.parse(localStorage.getItem('custom_tf_numbers') || '[]'); } catch (e) {}
+  const tfNumbers = [...new Set([...baseTFNumbers, ...customTFNumbers])].sort((a, b) => a - b);
   let assignedTFLabels = [];
   const vehiclePages = [
     '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
-    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
   ];
   vehiclePages.forEach(page => {
     const moveablesKey = moveablesKeyFor(page);
     let moveables = [];
     try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
     moveables.forEach(m => {
-      if (m && m.label && /^TF\s+\d+/.test(m.label)) assignedTFLabels.push(m.label.trim());
+      if (m && m.label) {
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^TF\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^TF\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedTFLabels.push(baseLabel);
+        }
+      }
     });
   });  
 
@@ -4077,10 +4959,16 @@ function renderTFListePage() {
     return !assignedTFLabels.includes(label) && !removedTFs.includes(label);
   });
   // Align with baseline: no fallback when all are removed; keep list empty
+  unassignedTFNumbers.sort((a, b) => a - b);
   const container = document.getElementById('tf-btn-list');
   if (container) container.innerHTML = '';
   let tfBtnListArea = container;
-  if (container && !container.classList.contains('moveable-area')) {
+  // Check if the moveable-area wrapper already exists
+  const existingTfWrapper = container ? container.parentNode : null;
+  if (existingTfWrapper && existingTfWrapper.classList.contains('moveable-area') && existingTfWrapper.dataset.areaId === 'tf-btn-list') {
+    tfBtnListArea = existingTfWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
     const wrapper = document.createElement('div');
     wrapper.className = 'moveable-area';
     wrapper.dataset.areaId = 'tf-btn-list';
@@ -4109,13 +4997,27 @@ function renderTFListePage() {
   }
   
   const technikflaschenArea = document.querySelector('.moveable-area[data-area-id="technikflaschen"] .area-content');
-  if (technikflaschenArea) technikflaschenArea.innerHTML = '';
   if (technikflaschenArea && window.renderMoveableButtons) {
     const removedButNotAssigned = removedTFs.filter(label => !assignedTFLabels.includes(label));
     const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('TF ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Remove old buttons first (by class, not innerHTML) to avoid flicker
+    technikflaschenArea.querySelectorAll('button.tf-btn').forEach(btn => btn.remove());
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
     removedNumbers.forEach(num => {
       const btn = document.createElement('button');
-      btn.textContent = 'TF ' + num;
+      const defaultLabel = 'TF ' + num;
+      let buttonText = defaultLabel;
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        if (customButtonTexts[defaultLabel]) {
+          buttonText = customButtonTexts[defaultLabel];
+        }
+      } catch (e) {}
+      btn.textContent = buttonText;
       btn.className = 'btn tf-btn';
       btn.style.border = '2px solid #176a2a';
       btn.style.color = '#fff';
@@ -4137,32 +5039,177 @@ function renderTFListePage() {
         }
       };
       // Don't add click-to-remove for removed area buttons
-      technikflaschenArea.appendChild(btn);
+      fragment.appendChild(btn);
     });
-    // After rendering, re-dispatch input event on search bar to update search results
-    const searchInput = document.getElementById('global-search');
-    if (searchInput) {
-      const event = new Event('input', { bubbles: true });
-      searchInput.dispatchEvent(event);
     
+    // Append all new buttons at once
+    technikflaschenArea.appendChild(fragment);
+  }
+  // Render custom TF buttons created via "+" button
+  let customTFButtons = [];
+  try { customTFButtons = JSON.parse(localStorage.getItem('custom_tf_buttons') || '[]'); } catch (e) {}
+  const tfBtnList = document.getElementById('tf-btn-list');
+  customTFButtons.forEach(customBtn => {
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned && tfBtnList) {
+      const btn = document.createElement('button');
+      let customButtonTexts = {};
+      try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+      const savedText = customButtonTexts[customBtn.label];
+      btn.textContent = savedText || 'TF';
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.className = 'btn tf-btn';
+      btn.style.border = '2px solid #9c27b0';
+      btn.style.color = '#9c27b0';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'tf-btn-list');
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      tfBtnList.appendChild(btn);
     }
+  });
+  // After rendering, re-dispatch input event on search bar to update search results
+  const searchInput = document.getElementById('global-search');
+  if (searchInput) {
+    const event = new Event('input', { bubbles: true });
+    searchInput.dispatchEvent(event);
+  }
+  // Add handler for "+" button to create new TF
+  const addTFBtn = document.getElementById('add-tf-btn');
+  if (addTFBtn && !addTFBtn.dataset.tfClickWired) {
+    addTFBtn.dataset.tfClickWired = '1';
+    const handleAddTF = function() {
+      // Visual feedback: scale the button
+      addTFBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addTFBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check if "TF" already exists globally
+      const existsCheck = findButtonGlobally('TF');
+      if (existsCheck.found) {
+        alert(`TF existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Create a generic "TF" button - user will edit via "Text bearbeiten"
+      const btn = document.createElement('button');
+      btn.textContent = 'TF';
+      btn.className = 'tf-btn';
+      btn.style.border = '2px solid #4ade80';
+      btn.style.color = '#4ade80';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'TF';
+      
+      // Make it moveable and add to DOM
+      const tfBtnList = document.getElementById('tf-btn-list');
+      if (tfBtnList) {
+        tfBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'tf-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(tfBtnList);
+      }
+    };
+    addTFBtn.addEventListener('click', handleAddTF);
+  }
+  
+  // Sort TF buttons by number after all buttons are rendered
+  const tfList = document.getElementById('tf-btn-list');
+  if (tfList) sortButtonsByNumber(tfList);
+  
+  // Add handler for "-" button to remove the last TF
+  const removeTFBtn = document.getElementById('remove-tf-btn');
+  if (removeTFBtn && !removeTFBtn.dataset.tfRemoveWired) {
+    removeTFBtn.dataset.tfRemoveWired = '1';
+    const handleRemoveTF = function() {
+      // Visual feedback: scale the button
+      removeTFBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removeTFBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get custom TF buttons
+      let customTFButtons = [];
+      try { customTFButtons = JSON.parse(localStorage.getItem('custom_tf_buttons') || '[]'); } catch (e) {}
+      
+      // Remove the last custom button if any exist
+      if (customTFButtons.length > 0) {
+        const removedButton = customTFButtons.pop();
+        localStorage.setItem('custom_tf_buttons', JSON.stringify(customTFButtons));
+        
+        // Also remove any stored custom text for this button
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (removedButton.label && customButtonTexts[removedButton.label]) {
+            delete customButtonTexts[removedButton.label];
+            localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+          }
+        } catch (e) {}
+        
+        // Re-render the page
+        if (typeof renderTFListePage === 'function') {
+          renderTFListePage();
+        }
+      }
+    };
+    removeTFBtn.addEventListener('click', handleRemoveTF);
   }
 }
 // --- SPA-specific: render Fluchthauben (FH) list page ---
 function renderFHListePage() {
-  // Numbers from original liste-fluchthauben.html
-  const fhNumbers = [320,322,339,337,355,358,351,350,356,346,347,358,317,335,330,336,340,352,302,303,304,305,306,307,308,310,311,314,315,316,317,319,321,323,325,324,326,327,328,329,331,332,333,334,338,341,343,345,344,348,349,354,357,301,315];
+  // Numbers from original liste-fluchthauben.html, plus custom from localStorage
+  const baseFHNumbers = [320,322,339,337,355,358,351,350,356,346,347,358,317,335,330,336,340,352,302,303,304,305,306,307,308,310,311,314,315,316,317,319,321,323,325,324,326,327,328,329,331,332,333,334,338,341,343,345,344,348,349,354,357,301,315];
+  let customFHNumbers = [];
+  try { customFHNumbers = JSON.parse(localStorage.getItem('custom_fh_numbers') || '[]'); } catch (e) {}
+  const fhNumbers = [...new Set([...baseFHNumbers, ...customFHNumbers])].sort((a, b) => a - b);
   let assignedFHLabels = [];
   const vehiclePages = [
     '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
-    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
   ];
   vehiclePages.forEach(page => {
     const moveablesKey = moveablesKeyFor(page);
     let moveables = [];
     try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
     moveables.forEach(m => {
-      if (m && m.label && /^FH\s+\d+/.test(m.label)) assignedFHLabels.push(m.label.trim());
+      if (m && m.label) {
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^FH\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^FH\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedFHLabels.push(baseLabel);
+        }
+      }
     });
   });
 
@@ -4174,11 +5221,17 @@ function renderFHListePage() {
     return !assignedFHLabels.includes(label) && !removedFHs.includes(label);
   });
   // Align with baseline: no fallback when all are removed; keep list empty
+  unassignedFHNumbers.sort((a, b) => a - b);
 
   const container = document.getElementById('fh-btn-list');
   if (container) container.innerHTML = '';
   let fhBtnListArea = container;
-  if (container && !container.classList.contains('moveable-area')) {
+  // Check if the moveable-area wrapper already exists
+  const existingFhWrapper = container ? container.parentNode : null;
+  if (existingFhWrapper && existingFhWrapper.classList.contains('moveable-area') && existingFhWrapper.dataset.areaId === 'fh-btn-list') {
+    fhBtnListArea = existingFhWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
     const wrapper = document.createElement('div');
     wrapper.className = 'moveable-area';
     wrapper.dataset.areaId = 'fh-btn-list';
@@ -4209,13 +5262,27 @@ function renderFHListePage() {
 
   // Optional: show removed-but-not-assigned FH items in the Fluchthauben area
   const fhArea = document.querySelector('.moveable-area[data-area-id="fluchthauben"] .area-content');
-  if (fhArea) fhArea.innerHTML = '';
   if (fhArea) {
     const removedButNotAssigned = removedFHs.filter(label => !assignedFHLabels.includes(label));
     const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('FH ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Remove old buttons first (by class, not innerHTML) to avoid flicker
+    fhArea.querySelectorAll('button.fh-btn').forEach(btn => btn.remove());
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
     removedNumbers.forEach(num => {
       const btn = document.createElement('button');
-      btn.textContent = 'FH ' + num;
+      const defaultLabel = 'FH ' + num;
+      let buttonText = defaultLabel;
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        if (customButtonTexts[defaultLabel]) {
+          buttonText = customButtonTexts[defaultLabel];
+        }
+      } catch (e) {}
+      btn.textContent = buttonText;
       btn.className = 'btn fh-btn';
       btn.style.border = '2px solid #bfa100';
       btn.style.color = '#bfa100';
@@ -4237,31 +5304,177 @@ function renderFHListePage() {
         }
       };
       // Don't add click-to-remove for removed area buttons
-      fhArea.appendChild(btn);
+      fragment.appendChild(btn);
     });
-    const searchInput = document.getElementById('global-search');
-    if (searchInput) {
-      const event = new Event('input', { bubbles: true });
-      searchInput.dispatchEvent(event);
+    
+    // Append all new buttons at once
+    fhArea.appendChild(fragment);
+  }
+  // Render custom FH buttons created via "+" button
+  let customFHButtons = [];
+  try { customFHButtons = JSON.parse(localStorage.getItem('custom_fh_buttons') || '[]'); } catch (e) {}
+  const fhBtnList = document.getElementById('fh-btn-list');
+  customFHButtons.forEach(customBtn => {
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned && fhBtnList) {
+      const btn = document.createElement('button');
+      let customButtonTexts = {};
+      try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+      const savedText = customButtonTexts[customBtn.label];
+      btn.textContent = savedText || 'FH';
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.className = 'btn fh-btn';
+      btn.style.border = '2px solid #bfa100';
+      btn.style.color = '#bfa100';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fh-btn-list');
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      fhBtnList.appendChild(btn);
     }
+  });
+  const searchInput = document.getElementById('global-search');
+  if (searchInput) {
+    const event = new Event('input', { bubbles: true });
+    searchInput.dispatchEvent(event);
+  }
+  // Add handler for "+" button to create new FH
+  const addFHBtn = document.getElementById('add-fh-btn');
+  if (addFHBtn && !addFHBtn.dataset.fhClickWired) {
+    addFHBtn.dataset.fhClickWired = '1';
+    const handleAddFH = function() {
+      // Visual feedback: scale the button
+      addFHBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addFHBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check if "FH" already exists globally
+      const existsCheck = findButtonGlobally('FH');
+      if (existsCheck.found) {
+        alert(`FH existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Create a generic "FH" button - user will edit via "Text bearbeiten"
+      const btn = document.createElement('button');
+      btn.textContent = 'FH';
+      btn.className = 'fh-btn';
+      btn.style.border = '2px solid #bfa100';
+      btn.style.color = '#bfa100';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'FH';
+      
+      // Make it moveable and add to DOM
+      const fhBtnList = document.getElementById('fh-btn-list');
+      if (fhBtnList) {
+        fhBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'fh-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(fhBtnList);
+      }
+    };
+    addFHBtn.addEventListener('click', handleAddFH);
+  }
+  
+  // Sort FH buttons by number after all buttons are rendered
+  const fhList = document.getElementById('fh-btn-list');
+  if (fhList) sortButtonsByNumber(fhList);
+  
+  // Add handler for "-" button to remove the last FH
+  const removeFHBtn = document.getElementById('remove-fh-btn');
+  if (removeFHBtn && !removeFHBtn.dataset.fhRemoveWired) {
+    removeFHBtn.dataset.fhRemoveWired = '1';
+    const handleRemoveFH = function() {
+      // Visual feedback: scale the button
+      removeFHBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removeFHBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get custom FH buttons
+      let customFHButtons = [];
+      try { customFHButtons = JSON.parse(localStorage.getItem('custom_fh_buttons') || '[]'); } catch (e) {}
+      
+      // Remove the last custom button if any exist
+      if (customFHButtons.length > 0) {
+        const removedButton = customFHButtons.pop();
+        localStorage.setItem('custom_fh_buttons', JSON.stringify(customFHButtons));
+        
+        // Also remove any stored custom text for this button
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (removedButton.label && customButtonTexts[removedButton.label]) {
+            delete customButtonTexts[removedButton.label];
+            localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+          }
+        } catch (e) {}
+        
+        // Re-render the page
+        if (typeof renderFHListePage === 'function') {
+          renderFHListePage();
+        }
+      }
+    };
+    removeFHBtn.addEventListener('click', handleRemoveFH);
   }
 }
 
 // --- SPA-specific: render Atemanschluesse (AM) list page ---
 function renderAMListePage() {
-  // AM numbers 1..264
-  const amNumbers = Array.from({length: 264}, (_,i) => i+1);
+  // AM numbers 1..264 plus custom from localStorage
+  const baseAMNumbers = Array.from({length: 264}, (_,i) => i+1);
+  let customAMNumbers = [];
+  try { customAMNumbers = JSON.parse(localStorage.getItem('custom_am_numbers') || '[]'); } catch (e) {}
+  const amNumbers = [...new Set([...baseAMNumbers, ...customAMNumbers])].sort((a, b) => a - b);
   let assignedAMLabels = [];
   const vehiclePages = [
     '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
-    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
   ];
   vehiclePages.forEach(page => {
     const moveablesKey = moveablesKeyFor(page);
     let moveables = [];
     try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
     moveables.forEach(m => {
-      if (m && m.label && /^AM\s+\d+/.test(m.label)) assignedAMLabels.push(m.label.trim());
+      if (m && m.label) {
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^AM\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^AM\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedAMLabels.push(baseLabel);
+        }
+      }
     });
   });
 
@@ -4273,11 +5486,17 @@ function renderAMListePage() {
     return !assignedAMLabels.includes(label) && !removedAMs.includes(label);
   });
   // Align with baseline: no fallback when all are removed; keep list empty
+  unassignedAMNumbers.sort((a, b) => a - b);
 
   const container = document.getElementById('am-btn-list');
   if (container) container.innerHTML = '';
   let amBtnListArea = container;
-  if (container && !container.classList.contains('moveable-area')) {
+  // Check if the moveable-area wrapper already exists
+  const existingAmWrapper = container ? container.parentNode : null;
+  if (existingAmWrapper && existingAmWrapper.classList.contains('moveable-area') && existingAmWrapper.dataset.areaId === 'am-btn-list') {
+    amBtnListArea = existingAmWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
     const wrapper = document.createElement('div');
     wrapper.className = 'moveable-area';
     wrapper.dataset.areaId = 'am-btn-list';
@@ -4308,13 +5527,27 @@ function renderAMListePage() {
   }
 
   const amAreaContent = document.querySelector('.moveable-area[data-area-id="atemanschluesse"] .area-content');
-  if (amAreaContent) amAreaContent.innerHTML = '';
   if (amAreaContent) {
     const removedButNotAssigned = removedAMs.filter(label => !assignedAMLabels.includes(label));
     const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('AM ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Remove old buttons first (by class, not innerHTML) to avoid flicker
+    amAreaContent.querySelectorAll('button.am-btn').forEach(btn => btn.remove());
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
     removedNumbers.forEach(num => {
       const btn = document.createElement('button');
-      btn.textContent = 'AM ' + num;
+      const defaultLabel = 'AM ' + num;
+      let buttonText = defaultLabel;
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        if (customButtonTexts[defaultLabel]) {
+          buttonText = customButtonTexts[defaultLabel];
+        }
+      } catch (e) {}
+      btn.textContent = buttonText;
       btn.className = 'btn am-btn';
       btn.style.border = '1px solid #000';
       btn.style.color = '#000';
@@ -4336,8 +5569,142 @@ function renderAMListePage() {
         }
       };
       // Don't add click-to-remove for removed area buttons
-      amAreaContent.appendChild(btn);
+      fragment.appendChild(btn);
     });
+    
+    // Append all new buttons at once
+    amAreaContent.appendChild(fragment);
+  }
+  // Render custom AM buttons created via "+" button
+  let customAMButtons = [];
+  try { customAMButtons = JSON.parse(localStorage.getItem('custom_am_buttons') || '[]'); } catch (e) {}
+  const amBtnList = document.getElementById('am-btn-list');
+  customAMButtons.forEach(customBtn => {
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned && amBtnList) {
+      const btn = document.createElement('button');
+      let customButtonTexts = {};
+      try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+      const savedText = customButtonTexts[customBtn.label];
+      btn.textContent = savedText || 'AM';
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.className = 'btn am-btn';
+      btn.style.border = '2px solid #ff9800';
+      btn.style.color = '#ff9800';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'am-btn-list');
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      amBtnList.appendChild(btn);
+    }
+  });
+  // Add handler for "+" button to create new AM
+  const addAMBtn = document.getElementById('add-am-btn');
+  if (addAMBtn && !addAMBtn.dataset.amClickWired) {
+    addAMBtn.dataset.amClickWired = '1';
+    const handleAddAM = function() {
+      // Visual feedback: scale the button
+      addAMBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addAMBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check if "AM" already exists globally
+      const existsCheck = findButtonGlobally('AM');
+      if (existsCheck.found) {
+        alert(`AM existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Create a generic "AM" button - user will edit via "Text bearbeiten"
+      const btn = document.createElement('button');
+      btn.textContent = 'AM';
+      btn.className = 'am-btn';
+      btn.style.border = '2px solid #ff9800';
+      btn.style.color = '#ff9800';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'AM';
+      
+      // Make it moveable and add to DOM
+      const amBtnList = document.getElementById('am-btn-list');
+      if (amBtnList) {
+        amBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'am-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(amBtnList);
+      }
+    };
+    addAMBtn.addEventListener('click', handleAddAM);
+  }
+  
+  // Sort AM buttons by number after all buttons are rendered
+  const amList = document.getElementById('am-btn-list');
+  if (amList) sortButtonsByNumber(amList);
+  
+  // Add handler for "-" button to remove the last AM
+  const removeAMBtn = document.getElementById('remove-am-btn');
+  if (removeAMBtn && !removeAMBtn.dataset.amRemoveWired) {
+    removeAMBtn.dataset.amRemoveWired = '1';
+    const handleRemoveAM = function() {
+      // Visual feedback: scale the button
+      removeAMBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removeAMBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get custom AM buttons
+      let customAMButtons = [];
+      try { customAMButtons = JSON.parse(localStorage.getItem('custom_am_buttons') || '[]'); } catch (e) {}
+      
+      // Remove the last custom button if any exist
+      if (customAMButtons.length > 0) {
+        const removedButton = customAMButtons.pop();
+        localStorage.setItem('custom_am_buttons', JSON.stringify(customAMButtons));
+        
+        // Also remove any stored custom text for this button
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (removedButton.label && customButtonTexts[removedButton.label]) {
+            delete customButtonTexts[removedButton.label];
+            localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+          }
+        } catch (e) {}
+        
+        // Re-render the page
+        if (typeof renderAMListePage === 'function') {
+          renderAMListePage();
+        }
+      }
+    };
+    removeAMBtn.addEventListener('click', handleRemoveAM);
   }
 }
 // --- SPA-specific: render ERK Geräte list page ---
@@ -4600,20 +5967,32 @@ function renderNummernPSAPage() {
 }
 // --- SPA-specific: render Sicherheitstrupptaschen (Si) list page ---
 function renderSIListePage() {
-  // Numbers from original liste-sicherheitstrupptaschen.html
-  const siNumbers = [305, 302, 304, 303, 306, 301];
+  // Numbers from original liste-sicherheitstrupptaschen.html, plus custom from localStorage
+  const baseSiNumbers = [305, 302, 304, 303, 306, 301];
+  let customSiNumbers = [];
+  try { customSiNumbers = JSON.parse(localStorage.getItem('custom_si_numbers') || '[]'); } catch (e) {}
+  const siNumbers = [...new Set([...baseSiNumbers, ...customSiNumbers])].sort((a, b) => a - b);
   let assignedSiLabels = [];
   // Vehicle pages to scan for assigned moveables
   const vehiclePages = [
     '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
-    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
   ];
   vehiclePages.forEach(page => {
     const moveablesKey = moveablesKeyFor(page);
     let moveables = [];
     try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
     moveables.forEach(m => {
-      if (m && m.label && /^Si\s+\d+/.test(m.label)) assignedSiLabels.push(m.label.trim());
+      if (m && m.label) {
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^Si\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^Si\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedSiLabels.push(baseLabel);
+        }
+      }
     });
   });
 
@@ -4627,13 +6006,19 @@ function renderSIListePage() {
     return !assignedSiLabels.includes(label) && !removedSis.includes(label);
   });
   // Align with baseline: no fallback when all are removed; keep list empty
+  unassignedSiNumbers.sort((a, b) => a - b);
 
   // Render into the list container
   const container = document.getElementById('si-btn-list');
   if (container) container.innerHTML = '';
   // Register home area for Si list for drag/dblclick home logic
   let siBtnListArea = container;
-  if (container && !container.classList.contains('moveable-area')) {
+  // Check if the moveable-area wrapper already exists
+  const existingSiWrapper = container ? container.parentNode : null;
+  if (existingSiWrapper && existingSiWrapper.classList.contains('moveable-area') && existingSiWrapper.dataset.areaId === 'si-btn-list') {
+    siBtnListArea = existingSiWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
     const wrapper = document.createElement('div');
     wrapper.className = 'moveable-area';
     wrapper.dataset.areaId = 'si-btn-list';
@@ -4662,7 +6047,15 @@ function renderSIListePage() {
         btn.style.minWidth = '54px';
         btn.style.minHeight = '44px';
         btn.style.fontSize = '1.1rem';
-        btn.textContent = label;
+        // Check for custom text first
+        let buttonText = label;
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (customButtonTexts[label]) {
+            buttonText = customButtonTexts[label];
+          }
+        } catch (e) {}
+        btn.textContent = buttonText;
         const styleKind = ((entry.fl && (function(n){ const goldenFL=[126,212,202,149,209,173,164,156,154,196,163,216,205,181,203,208,160,227,136,120,188,218,225,177,153,198,138,127,215,213,192,174,206,158,210,140,130,155,190,221,178,143,122,180,171,175,131,152,128,172,129,169,123,199,219,229,194,157,195,207,220,124,226,224,197,161,170,201,119,193,183,214,121,125,159,135,176,139,179,141,142,184,145,185,144,186,146,147,189,148,191,150,200,151,204,162,211,165,217,166,222,167,223,168,228,182,238,137,187,8,43,57,93,167,189,211,289]; return goldenFL.includes(n); })(entry.fl))) ? 'gold' : 'grey';
         decorateCombinedSiInline(btn, entry.fl, styleKind);
         // Home list (Si) should open sidebar on click
@@ -4707,13 +6100,27 @@ function renderSIListePage() {
 
   // Render removed-but-not-assigned Sis in the Sicherheitstrupptasche area if present (on any page with that area)
   const siArea = document.querySelector('.moveable-area[data-area-id="sicherheitstrupptasche"] .area-content');
-  if (siArea) siArea.innerHTML = '';
   if (siArea) {
     const removedButNotAssigned = removedSis.filter(label => !assignedSiLabels.includes(label));
     const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('Si ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Remove old buttons first (by class, not innerHTML) to avoid flicker
+    siArea.querySelectorAll('button.si-btn').forEach(btn => btn.remove());
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
     removedNumbers.forEach(num => {
       const btn = document.createElement('button');
-      btn.textContent = 'Si ' + num;
+      const defaultLabel = 'Si ' + num;
+      let buttonText = defaultLabel;
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        if (customButtonTexts[defaultLabel]) {
+          buttonText = customButtonTexts[defaultLabel];
+        }
+      } catch (e) {}
+      btn.textContent = buttonText;
       btn.className = 'btn si-btn';
       btn.style.border = '2px solid #bfff00';
       btn.style.color = '#bfff00';
@@ -4735,7 +6142,244 @@ function renderSIListePage() {
         }
       };
       // Don't add click-to-remove for removed area buttons
-      siArea.appendChild(btn);
+      fragment.appendChild(btn);
+    });
+    
+    // Append all new buttons at once
+    siArea.appendChild(fragment);
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+  // Render custom Si buttons created via "+" button
+  let customSiButtons = [];
+  try { customSiButtons = JSON.parse(localStorage.getItem('custom_si_buttons') || '[]'); } catch (e) {}
+  const siBtnList = document.getElementById('si-btn-list');
+  customSiButtons.forEach(customBtn => {
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned && siBtnList) {
+      const btn = document.createElement('button');
+      let customButtonTexts = {};
+      try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+      const savedText = customButtonTexts[customBtn.label];
+      btn.textContent = savedText || 'Si';
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.className = 'btn si-btn';
+      btn.style.border = '2px solid #ff6b6b';
+      btn.style.color = '#ff6b6b';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'si-btn-list');
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      siBtnList.appendChild(btn);
+    }
+  });
+  // Add handler for "+" button to create new Si
+  const addSiBtn = document.getElementById('add-si-btn');
+  if (addSiBtn && !addSiBtn.dataset.siClickWired) {
+    addSiBtn.dataset.siClickWired = '1';
+    const handleAddSi = function() {
+      // Visual feedback: scale the button
+      addSiBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addSiBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check globally if Si already exists
+      const existsCheck = findButtonGlobally('Si');
+      if (existsCheck.found) {
+        alert(`Si existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_si_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list - use buttonId as label for uniqueness
+      let customButtons = [];
+      try { customButtons = JSON.parse(localStorage.getItem('custom_si_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: buttonId });
+      localStorage.setItem('custom_si_buttons', JSON.stringify(customButtons));
+      
+      // Create button with text "Si"
+      const btn = document.createElement('button');
+      btn.textContent = 'Si';
+      btn.className = 'btn si-btn';
+      btn.style.border = '2px solid #ff6b6b';
+      btn.style.color = '#ff6b6b';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'Si';
+      btn.dataset.customId = buttonId;
+      
+      // Add to DOM and make moveable
+      const siBtnList = document.getElementById('si-btn-list');
+      if (siBtnList) {
+        siBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'si-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(siBtnList);
+      }
+      
+      // Wire up click handler for sidebar
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
+    };
+    addSiBtn.addEventListener('click', handleAddSi);
+  }
+  
+  // Sort Si buttons by number after all buttons are rendered
+  const siList = document.getElementById('si-btn-list');
+  if (siList) sortButtonsByNumber(siList);
+  
+  // Add handler for "-" button to remove the last Si
+  const removeSiBtn = document.getElementById('remove-si-btn');
+  if (removeSiBtn && !removeSiBtn.dataset.siRemoveWired) {
+    removeSiBtn.dataset.siRemoveWired = '1';
+    const handleRemoveSi = function() {
+      // Visual feedback: scale the button
+      removeSiBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removeSiBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get custom Si buttons
+      let customSiButtons = [];
+      try { customSiButtons = JSON.parse(localStorage.getItem('custom_si_buttons') || '[]'); } catch (e) {}
+      
+      // Remove the last custom button if any exist
+      if (customSiButtons.length > 0) {
+        const removedButton = customSiButtons.pop();
+        localStorage.setItem('custom_si_buttons', JSON.stringify(customSiButtons));
+        
+        // Also remove any stored custom text for this button
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (removedButton.label && customButtonTexts[removedButton.label]) {
+            delete customButtonTexts[removedButton.label];
+            localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+          }
+        } catch (e) {}
+        
+        // Re-render the page
+        if (typeof renderSIListePage === 'function') {
+          renderSIListePage();
+        }
+      }
+    };
+    removeSiBtn.addEventListener('click', handleRemoveSi);
+  }
+}
+
+function renderXListePage() {
+  // X button numbers: base numbers 1-5, plus custom from localStorage
+  const baseXNumbers = [1, 2, 3, 4, 5];
+  let customXNumbers = [];
+  try { customXNumbers = JSON.parse(localStorage.getItem('custom_x_numbers') || '[]'); } catch (e) {}
+  const xNumbers = [...new Set([...baseXNumbers, ...customXNumbers])].sort((a, b) => a - b);
+  
+  let assignedXLabels = [];
+  const vehiclePages = [
+    '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
+  ];
+  vehiclePages.forEach(page => {
+    const moveablesKey = moveablesKeyFor(page);
+    let moveables = [];
+    try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+    moveables.forEach(m => {
+      if (m && m.label) {
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^X\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^X\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedXLabels.push(baseLabel);
+        }
+      }
+    });
+  });
+
+  let removedXs = [];
+  try { removedXs = JSON.parse(localStorage.getItem('removed_xs_liste_messgeraete') || '[]'); } catch (e) {}
+
+  let unassignedXNumbers = xNumbers.filter(num => {
+    const label = `X ${num}`;
+    return !assignedXLabels.includes(label) && !removedXs.includes(label);
+  });
+  unassignedXNumbers.sort((a, b) => a - b);
+
+  const container = document.getElementById('x-btn-list');
+  if (container) container.innerHTML = '';
+  let xBtnListArea = container;
+  // Check if the moveable-area wrapper already exists
+  const existingXWrapper = container ? container.parentNode : null;
+  if (existingXWrapper && existingXWrapper.classList.contains('moveable-area') && existingXWrapper.dataset.areaId === 'x-btn-list') {
+    xBtnListArea = existingXWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
+    const wrapper = document.createElement('div');
+    wrapper.className = 'moveable-area';
+    wrapper.dataset.areaId = 'x-btn-list';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    xBtnListArea = wrapper;
+  }
+  if (window.registerArea) window.registerArea('x-btn-list', xBtnListArea);
+
+  if (window.renderMoveableButtons) {
+    window.renderMoveableButtons(container, unassignedXNumbers, 'X', 'x-btn', function(btn, num) {
+      btn.style.border = '2px solid #6b3e26';
+      btn.style.color = '#fff';
+      btn.style.background = '#6b3e26';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'x-btn-list');
     });
     const searchInput = document.getElementById('global-search');
     if (searchInput) {
@@ -4743,7 +6387,200 @@ function renderSIListePage() {
       searchInput.dispatchEvent(event);
     }
   }
+
+  // Optional: show removed-but-not-assigned X items in the Messgeräte area
+  const xArea = document.querySelector('.moveable-area[data-area-id="messgeraete"] .area-content');
+  if (xArea) {
+    const removedButNotAssigned = removedXs.filter(label => !assignedXLabels.includes(label));
+    const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('X ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
+    removedNumbers.forEach(num => {
+      const btn = document.createElement('button');
+      const defaultLabel = 'X ' + num;
+      let buttonText = defaultLabel;
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        if (customButtonTexts[defaultLabel]) {
+          buttonText = customButtonTexts[defaultLabel];
+        }
+      } catch (e) {}
+      btn.textContent = buttonText;
+      btn.className = 'btn x-btn';
+      btn.style.border = '2px solid #6b3e26';
+      btn.style.color = '#fff';
+      btn.style.background = '#6b3e26';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      const xDblClickHandler = function() {
+        let removedXs = [];
+        try { removedXs = JSON.parse(localStorage.getItem('removed_xs_liste_messgeraete') || '[]'); } catch (e) {}
+        const label = 'X ' + num;
+        const idx = removedXs.indexOf(label);
+        if (idx !== -1) {
+          removedXs.splice(idx, 1);
+          localStorage.setItem('removed_xs_liste_messgeraete', JSON.stringify(removedXs));
+          renderXListePage();
+        }
+      };
+      // Don't add click-to-remove for removed area buttons
+      fragment.appendChild(btn);
+    });
+    
+    // Clear and repopulate in one atomic operation to avoid the "clearing one by one" effect
+    xArea.innerHTML = '';
+    xArea.appendChild(fragment);
+  }
+  // Render custom X buttons created via "+" button
+  let customXButtons = [];
+  try { customXButtons = JSON.parse(localStorage.getItem('custom_x_buttons') || '[]'); } catch (e) {}
+  const xBtnList = document.getElementById('x-btn-list');
+  customXButtons.forEach(customBtn => {
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned && xBtnList) {
+      const btn = document.createElement('button');
+      let customButtonTexts = {};
+      try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+      const savedText = customButtonTexts[customBtn.label];
+      btn.textContent = savedText || customBtn.label;
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.className = 'btn x-btn';
+      btn.style.border = '2px solid #6b3e26';
+      btn.style.color = '#fff';
+      btn.style.background = '#6b3e26';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'x-btn-list');
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      xBtnList.appendChild(btn);
+    }
+  });
+  // Add handler for "+" button to create new X
+  const addXBtn = document.getElementById('add-x-btn');
+  if (addXBtn && !addXBtn.dataset.xClickWired) {
+    addXBtn.dataset.xClickWired = '1';
+    const handleAddX = function() {
+      // Visual feedback: scale the button
+      addXBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addXBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check globally if X already exists
+      const existsCheck = findButtonGlobally('X');
+      if (existsCheck.found) {
+        alert(`X existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_x_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list
+      let customButtons = [];
+      try { customButtons = JSON.parse(localStorage.getItem('custom_x_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: 'X' });
+      localStorage.setItem('custom_x_buttons', JSON.stringify(customButtons));
+      
+      // Create button with text "X"
+      const btn = document.createElement('button');
+      btn.textContent = 'X';
+      btn.className = 'btn x-btn';
+      btn.style.border = '2px solid #6b3e26';
+      btn.style.color = '#fff';
+      btn.style.background = '#6b3e26';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'X';
+      btn.dataset.customId = buttonId;
+      
+      // Add to DOM and make moveable
+      const xBtnList = document.getElementById('x-btn-list');
+      if (xBtnList) {
+        xBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'x-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(xBtnList);
+      }
+      
+      // Wire up click handler for sidebar
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
+    };
+    addXBtn.addEventListener('click', handleAddX);
+  }
+  
+  // Sort X buttons by number after all buttons are rendered
+  const xList = document.getElementById('x-btn-list');
+  if (xList) sortButtonsByNumber(xList);
+  
+  // Add handler for "-" button to remove the last X
+  const removeXBtn = document.getElementById('remove-x-btn');
+  if (removeXBtn && !removeXBtn.dataset.xRemoveWired) {
+    removeXBtn.dataset.xRemoveWired = '1';
+    const handleRemoveX = function() {
+      // Visual feedback: scale the button
+      removeXBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removeXBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get the X button list and remove the last button
+      const xBtnList = document.getElementById('x-btn-list');
+      if (xBtnList) {
+        const buttons = xBtnList.querySelectorAll('button.x-btn');
+        if (buttons.length > 0) {
+          const lastBtn = buttons[buttons.length - 1];
+          lastBtn.remove();
+        }
+      }
+    };
+    removeXBtn.addEventListener('click', handleRemoveX);
+  }
 }
+
 // ---- Atemschutzeinsatz: multi-open entries + live summary + print ----
 const EINSATZ_KEY = 'current_einsatz_v1'; // legacy single-entry key (for migration)
 const OPEN_EINSAETZE_KEY = 'open_einsaetze_v1';
@@ -5296,19 +7133,32 @@ function initAtemschutzEinsatzPage() {
 }
 // --- SPA-specific: render PA list page ---
 function renderPAListePage() {
-  // PA numbers provided by user
-  const paNumbers = [29,62,36,15,47,60,20,43,26,19,50,31,21,8,46,24,48,12,61,57,23,34,44,54,39,63,55,22,66,58,18,1,17,25,11,4,14,28,3,9,64,7,10,59,49,45,16,32,56,33,2,42,41,65,38,6,5,27,30];
+  // PA numbers provided by user, plus any custom ones from localStorage
+  let baseNumbers = [29,62,36,15,47,60,20,43,26,19,50,31,21,8,46,24,48,12,61,57,23,34,44,54,39,63,55,22,66,58,18,1,17,25,11,4,14,28,3,9,64,7,10,59,49,45,16,32,56,33,2,42,41,65,38,6,5,27,30];
+  let customPANumbers = [];
+  try { customPANumbers = JSON.parse(localStorage.getItem('custom_pa_numbers') || '[]'); } catch (e) {}
+  const paNumbers = [...new Set([...baseNumbers, ...customPANumbers])].sort((a, b) => a - b);
   // Compute PAs assigned across all vehicles
   let assignedPALabels = [];
   const vehiclePages = [
     '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
-    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
   ];
   vehiclePages.forEach(pageFile => {
     let moveables = [];
     try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
     (moveables||[]).forEach(m => {
-      if (m && m.label && /^PA\s+\d+/.test(m.label)) assignedPALabels.push(m.label.trim());
+      if (m && m.label) {
+        // Use baseLabel if available (set during assignment), otherwise extract from label
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^PA\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^PA\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedPALabels.push(baseLabel);
+        }
+      }
     });
   });
   const paNumbersSet = new Set(paNumbers.map(n => `PA ${n}`));
@@ -5324,10 +7174,16 @@ function renderPAListePage() {
     return !assignedSet.has(label) && !removedPAs.includes(label) && !combinedPASet.has(label);
   });
   // Align with baseline: no fallback when all are removed; keep list empty
+  unassignedPANumbers.sort((a, b) => a - b);
   const container = document.getElementById('pa-btn-list');
   if (container) container.innerHTML = '';
   let paBtnListArea = container;
-  if (container && !container.classList.contains('moveable-area')) {
+  // Check if the moveable-area wrapper already exists
+  const existingWrapper = container ? container.parentNode : null;
+  if (existingWrapper && existingWrapper.classList.contains('moveable-area') && existingWrapper.dataset.areaId === 'pa-btn-list') {
+    paBtnListArea = existingWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
     const wrapper = document.createElement('div');
     wrapper.className = 'moveable-area';
     wrapper.dataset.areaId = 'pa-btn-list';
@@ -5337,6 +7193,7 @@ function renderPAListePage() {
   }
   if (window.registerArea) window.registerArea('pa-btn-list', paBtnListArea);
   // First render combined PA+FL buttons from mapping (only if not assigned and not removed)
+  combinedMap.sort((a, b) => a.pa - b.pa);
   combinedMap.forEach(entry => {
     const label = `PA ${entry.pa}`;
     const fullLabel = `PA ${entry.pa} mit FL ${entry.fl}`;
@@ -5352,8 +7209,17 @@ function renderPAListePage() {
     btn.style.minWidth = '54px';
     btn.style.minHeight = '44px';
     btn.style.fontSize = '1.1rem';
-    // Set base label so decorator can extract PA number
-    btn.textContent = label;
+    // Set base label so decorator can extract PA number, but check for custom text first
+    let buttonText = label;
+    try {
+      const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+      if (customButtonTexts[label]) {
+        buttonText = customButtonTexts[label];
+      }
+    } catch (e) {}
+    btn.textContent = buttonText;
+    // Store full label (with FL info) for proper identification
+    btn.dataset.fullLabel = fullLabel;
     // Decorate inline with badge based on FL group
     const isGold = (() => {
       const goldenFL = [126,212,202,149,209,173,164,156,154,196,163,216,205,181,203,208,160,227,136,120,188,218,225,177,153,198,138,127,215,213,192,174,206,158,210,140,130,155,190,221,178,143,122,180,171,175,131,152,128,172,129,169,123,199,219,229,194,157,195,207,220,124,226,224,197,161,170,201,119,193,183,214,121,125,159,135,176,139,179,141,142,184,145,185,144,186,146,147,189,148,191,150,200,151,204,162,211,165,217,166,222,167,223,168,228,182,238,137,187,8,43,57,93,167,189,211,289];
@@ -5381,7 +7247,19 @@ function renderPAListePage() {
   // Then render the remaining unassigned base PAs
   unassignedPANumbers.forEach(num => {
     const btn = document.createElement('button');
-    btn.textContent = `PA ${num}`;
+    const defaultLabel = `PA ${num}`;
+    
+    // Check if there's a custom text stored for this button
+    let buttonText = defaultLabel;
+    try {
+      const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+      if (customButtonTexts[defaultLabel]) {
+        buttonText = customButtonTexts[defaultLabel];
+      }
+    } catch (e) {}
+    
+    btn.textContent = buttonText;
+    btn.dataset.fullLabel = defaultLabel; // Store the canonical label for persistence
     btn.className = 'pa-btn';
     btn.style.border = '2px solid #888';
     btn.style.color = '#bbb';
@@ -5410,13 +7288,30 @@ function renderPAListePage() {
     container.appendChild(btn);
   });
   const paArea = document.querySelector('.moveable-area[data-area-id="pa"] .area-content');
-  if (paArea) paArea.innerHTML = '';
   if (paArea) {
     const removedButNotAssigned = removedPAs.filter(label => !assignedSet.has(label));
     const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('PA ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Remove old buttons first (by class, not innerHTML) to avoid flicker
+    paArea.querySelectorAll('button.pa-btn').forEach(btn => btn.remove());
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
     removedNumbers.forEach(num => {
       const btn = document.createElement('button');
-      btn.textContent = 'PA ' + num;
+      const defaultLabel = `PA ${num}`;
+      
+      // Check if there's a custom text stored for this button
+      let buttonText = defaultLabel;
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        if (customButtonTexts[defaultLabel]) {
+          buttonText = customButtonTexts[defaultLabel];
+        }
+      } catch (e) {}
+      
+      btn.textContent = buttonText;
       btn.className = 'pa-btn';
       btn.style.border = '2px solid #888';
       btn.style.color = '#bbb';
@@ -5438,8 +7333,170 @@ function renderPAListePage() {
         }
       };
       // Don't add click-to-remove for removed area buttons
-      paArea.appendChild(btn);
+      fragment.appendChild(btn);
     });
+    
+    // Append all new buttons at once
+    paArea.appendChild(fragment);
+  }
+  // Render custom PA buttons created via "+" button
+  let customPAButtons = [];
+  try { customPAButtons = JSON.parse(localStorage.getItem('custom_pa_buttons') || '[]'); } catch (e) {}
+  customPAButtons.forEach(customBtn => {
+    // Check if this custom button is already assigned somewhere
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned) {
+      const btn = document.createElement('button');
+      let customButtonTexts = {};
+      try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+      const savedText = customButtonTexts[customBtn.label];
+      const buttonText = savedText || 'PA';
+      btn.textContent = buttonText;
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.className = 'pa-btn';
+      btn.style.border = '2px solid #888';
+      btn.style.color = '#bbb';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'pa-btn-list');
+      // Wire up click handler for sidebar
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      container.appendChild(btn);
+    }
+  });
+  // Add handler for "+" button to create new PA - simplified, no number logic
+  const addPABtn = document.getElementById('add-pa-btn');
+  if (addPABtn && !addPABtn.dataset.paClickWired) {
+    addPABtn.dataset.paClickWired = '1';
+    const handleAddPA = function() {
+      // Visual feedback: scale the button
+      addPABtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addPABtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check if "PA" already exists globally
+      const existsCheck = findButtonGlobally('PA');
+      if (existsCheck.found) {
+        alert(`PA existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_pa_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list - use buttonId as label for uniqueness
+      let customButtons = [];
+      try { customButtons = JSON.parse(localStorage.getItem('custom_pa_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: buttonId });
+      localStorage.setItem('custom_pa_buttons', JSON.stringify(customButtons));
+      
+      // Create a generic "PA" button - user will edit via "Text bearbeiten"
+      const btn = document.createElement('button');
+      btn.textContent = 'PA';
+      btn.className = 'pa-btn';
+      btn.style.border = '2px solid #888';
+      btn.style.color = '#bbb';
+      btn.style.background = '#111';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'PA';
+      btn.dataset.customId = buttonId;
+      
+      // Make it moveable and add to DOM
+      const paBtnList = document.getElementById('pa-btn-list');
+      if (paBtnList) {
+        paBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'pa-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(paBtnList);
+      }
+      
+      // Wire up click handler for sidebar
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
+    };
+    addPABtn.addEventListener('click', handleAddPA);
+  }
+  
+  // Sort PA buttons by number after all buttons are rendered
+  const paList = document.getElementById('pa-btn-list');
+  if (paList) sortButtonsByNumber(paList);
+  
+  // Add handler for "-" button to remove the last PA - simplified
+  const removePABtn = document.getElementById('remove-pa-btn');
+  if (removePABtn && !removePABtn.dataset.paRemoveWired) {
+    removePABtn.dataset.paRemoveWired = '1';
+    const handleRemovePA = function() {
+      // Visual feedback: scale the button
+      removePABtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removePABtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get custom PA buttons
+      let customPAButtons = [];
+      try { customPAButtons = JSON.parse(localStorage.getItem('custom_pa_buttons') || '[]'); } catch (e) {}
+      
+      // Remove the last custom button if any exist
+      if (customPAButtons.length > 0) {
+        const removedButton = customPAButtons.pop();
+        localStorage.setItem('custom_pa_buttons', JSON.stringify(customPAButtons));
+        
+        // Also remove any stored custom text for this button
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (removedButton.label && customButtonTexts[removedButton.label]) {
+            delete customButtonTexts[removedButton.label];
+            localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+          }
+        } catch (e) {}
+        
+        // Re-render the page
+        if (typeof renderPAListePage === 'function') {
+          renderPAListePage();
+        }
+      }
+    };
+    removePABtn.addEventListener('click', handleRemovePA);
   }
 }
 // Listen for hash changes (routing)
@@ -5509,12 +7566,7 @@ window.addEventListener('DOMContentLoaded', function() {
       inputs.forEach(inp => { try { inp.addEventListener('change', async (ev) => {
         const f = inp.files && inp.files[0]; if (!f) return; try { const text = await f.text(); const obj = JSON.parse(text); restoreBackupFromObject(obj); } catch (e) { console.error('restore error', e); alert('Fehler beim Wiederherstellen: ' + (e && e.message)); } finally { inp.value = ''; }
       }); } catch(_){} });
-      // header fullscreen button removed; persistent FAB at bottom-right remains
-    } catch (_) {}
-  }, 40);
-  // Create a persistent floating fullscreen button so users can enter fullscreen from any page
-  setTimeout(() => {
-    try {
+      // Create a persistent floating fullscreen button so users can enter fullscreen from any page
       if (!document.getElementById('global-fullscreen-fab')) {
         const fab = document.createElement('button');
         fab.id = 'global-fullscreen-fab';
@@ -5530,19 +7582,14 @@ window.addEventListener('DOMContentLoaded', function() {
         fab.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
         fab.addEventListener('click', () => {
           try {
-            // Detect iOS / iPadOS - Safari will exit native fullscreen when the keyboard opens.
             const isIOS = (/iP(ad|hone|od)/.test(navigator.userAgent)) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             if (isIOS) {
-              // Toggle an in-page 'simulated' fullscreen class instead of using the Fullscreen API.
               const root = document.documentElement;
               const isFull = root.classList.toggle('app-full');
               fab.textContent = isFull ? 'Beenden' : 'Vollbild';
-              // If we're on iOS but not running as a Home-Screen PWA, advise the user
-              // that true fullscreen (no Safari UI) requires adding the app to the Home Screen.
               const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone;
               if (!isStandalone && isFull) {
                 try {
-                  // show a small modal with instructions
                   if (!document.getElementById('a2hs-modal')) {
                     const modal = document.createElement('div');
                     modal.id = 'a2hs-modal';
@@ -5559,14 +7606,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     card.style.borderRadius = '10px';
                     card.style.maxWidth = '92%';
                     card.style.fontSize = '15px';
-                    card.innerHTML = `<div style="font-weight:700;margin-bottom:8px">Tipp für iPad</div>
-                      <div style="margin-bottom:8px">Um die Safari-Leiste zu entfernen und die App wirklich bildschirmfüllend zu benutzen, füge diese Seite zum Home-Bildschirm hinzu:</div>
-                      <ol style="padding-left:18px;margin:0 0 10px 0">
-                        <li>Tippe auf das Teilen-Symbol in Safari</li>
-                        <li>Wähle "Zum Home-Bildschirm"</li>
-                        <li>Starte die App vom Home-Bildschirm</li>
-                      </ol>
-                      <div style="color:#666;font-size:0.9rem;margin-bottom:10px">Hinweis: Die Seite muss über HTTPS geladen werden, damit das Hinzufügen zum Home-Bildschirm optimal funktioniert (GitHub Pages oder Netlify sind einfache Optionen).</div>`;
+                    card.innerHTML = `<div style="font-weight:700;margin-bottom:8px">Tipp für iPad</div><div style="margin-bottom:8px">Um die Safari-Leiste zu entfernen und die App wirklich bildschirmfüllend zu benutzen, füge diese Seite zum Home-Bildschirm hinzu:</div><ol style="padding-left:18px;margin:0 0 10px 0"><li>Tippe auf das Teilen-Symbol in Safari</li><li>Wähle "Zum Home-Bildschirm"</li><li>Starte die App vom Home-Bildschirm</li></ol><div style="color:#666;font-size:0.9rem;margin-bottom:10px">Hinweis: Die Seite muss über HTTPS geladen werden, damit das Hinzufügen zum Home-Bildschirm optimal funktioniert.</div>`;
                     const btn = document.createElement('button');
                     btn.className = 'btn btn-small';
                     btn.textContent = 'Verstanden';
@@ -5592,6 +7632,305 @@ window.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(fab);
       }
     } catch (_) {}
-  }, 120);
+  }, 40);
+  // Extra safety: recalculate header offset on various viewport events
+  try {
+    const updateHeaderOffset = function() {
+      // Calculate and apply header offset if needed
+      try {
+        const header = document.getElementById('app-header');
+        const main = document.getElementById('app-main');
+        if (header && main) {
+          const height = header.offsetHeight;
+          main.style.paddingTop = (height + 12) + 'px';
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('load', updateHeaderOffset);
+    window.addEventListener('orientationchange', updateHeaderOffset);
+    if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+      window.visualViewport.addEventListener('resize', updateHeaderOffset);
+    }
+    setTimeout(updateHeaderOffset, 600);
+  } catch (_) {}
 });
+
+// ---- CSA List Page Rendering ----
+function renderCSAListePage() {
+  // CSA button numbers: base numbers 1-5, plus custom from localStorage
+  const baseCSANumbers = [1, 2, 3, 4, 5];
+  let customCSANumbers = [];
+  try { customCSANumbers = JSON.parse(localStorage.getItem('custom_csa_numbers') || '[]'); } catch (e) {}
+  const csaNumbers = [...new Set([...baseCSANumbers, ...customCSANumbers])].sort((a, b) => a - b);
   
+  let assignedCSALabels = [];
+  const vehiclePages = [
+    '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+    '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+    'tlf-azubi.html','hauptwache.html'
+  ];
+  vehiclePages.forEach(page => {
+    const moveablesKey = moveablesKeyFor(page);
+    let moveables = [];
+    try { moveables = JSON.parse(localStorage.getItem(moveablesKey) || '[]'); } catch (e) {}
+    moveables.forEach(m => {
+      if (m && m.label) {
+        let baseLabel = m.baseLabel;
+        if (!baseLabel && /^CSA\s+\d+/.test(m.label)) {
+          baseLabel = (m.label.match(/^CSA\s+\d+/)||[''])[0].trim();
+        }
+        if (baseLabel) {
+          assignedCSALabels.push(baseLabel);
+        }
+      }
+    });
+  });
+
+  let removedCSAs = [];
+  try { removedCSAs = JSON.parse(localStorage.getItem('removed_csas_liste_csa') || '[]'); } catch (e) {}
+
+  let unassignedCSANumbers = csaNumbers.filter(num => {
+    const label = `CSA ${num}`;
+    return !assignedCSALabels.includes(label) && !removedCSAs.includes(label);
+  });
+  unassignedCSANumbers.sort((a, b) => a - b);
+
+  const container = document.getElementById('csa-btn-list');
+  if (container) container.innerHTML = '';
+  let csaBtnListArea = container;
+  // Check if the moveable-area wrapper already exists
+  const existingCSAWrapper = container ? container.parentNode : null;
+  if (existingCSAWrapper && existingCSAWrapper.classList.contains('moveable-area') && existingCSAWrapper.dataset.areaId === 'csa-btn-list') {
+    csaBtnListArea = existingCSAWrapper;
+  } else if (container && !container.classList.contains('moveable-area')) {
+    // Only create wrapper if it doesn't already exist
+    const wrapper = document.createElement('div');
+    wrapper.className = 'moveable-area';
+    wrapper.dataset.areaId = 'csa-btn-list';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    csaBtnListArea = wrapper;
+  }
+  if (window.registerArea) window.registerArea('csa-btn-list', csaBtnListArea);
+
+  if (window.renderMoveableButtons) {
+    window.renderMoveableButtons(container, unassignedCSANumbers, 'CSA', 'csa-btn', function(btn, num) {
+      btn.style.border = '2px solid #ff8800';
+      btn.style.color = '#000';
+      btn.style.background = '#ff8800';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'csa-btn-list');
+    });
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+  }
+
+  // Optional: show removed-but-not-assigned CSA items in the CSA area
+  const csaArea = document.querySelector('.moveable-area[data-area-id="csa"] .area-content');
+  if (csaArea) {
+    const removedButNotAssigned = removedCSAs.filter(label => !assignedCSALabels.includes(label));
+    const removedNumbers = removedButNotAssigned.map(label => parseInt(label.replace('CSA ', ''), 10)).filter(n => !isNaN(n));
+    
+    // Remove old buttons first (by class, not innerHTML) to avoid flicker
+    csaArea.querySelectorAll('button.csa-btn').forEach(btn => btn.remove());
+    
+    // Build all new buttons in a fragment for atomic insertion
+    const fragment = document.createDocumentFragment();
+    
+    removedNumbers.forEach(num => {
+      const btn = document.createElement('button');
+      const defaultLabel = 'CSA ' + num;
+      let buttonText = defaultLabel;
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        if (customButtonTexts[defaultLabel]) {
+          buttonText = customButtonTexts[defaultLabel];
+        }
+      } catch (e) {}
+      btn.textContent = buttonText;
+      btn.className = 'btn csa-btn';
+      btn.style.border = '2px solid #ff8800';
+      btn.style.color = '#000';
+      btn.style.background = '#ff8800';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      fragment.appendChild(btn);
+    });
+    
+    // Append all new buttons at once
+    csaArea.appendChild(fragment);
+  }
+  // Render custom CSA buttons created via "+" button
+  let customCSAButtons = [];
+  try { customCSAButtons = JSON.parse(localStorage.getItem('custom_csa_buttons') || '[]'); } catch (e) {}
+  const csaBtnList = document.getElementById('csa-btn-list');
+  customCSAButtons.forEach(customBtn => {
+    let isAssigned = false;
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.customId === customBtn.id) {
+          isAssigned = true;
+        }
+      });
+    });
+    if (!isAssigned && csaBtnList) {
+      const btn = document.createElement('button');
+      let customButtonTexts = {};
+      try { customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}'); } catch (e) {}
+      const savedText = customButtonTexts[customBtn.label];
+      btn.textContent = savedText || 'CSA';
+      btn.dataset.fullLabel = customBtn.label;
+      btn.dataset.customId = customBtn.id;
+      btn.className = 'btn csa-btn';
+      btn.style.border = '2px solid #ff8800';
+      btn.style.color = '#000';
+      btn.style.background = '#ff8800';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'csa-btn-list');
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      csaBtnList.appendChild(btn);
+    }
+  });
+  const searchInput = document.getElementById('global-search');
+  if (searchInput) {
+    const event = new Event('input', { bubbles: true });
+    searchInput.dispatchEvent(event);
+  }
+  // Add handler for "+" button to create new CSA
+  const addCSABtn = document.getElementById('add-csa-btn');
+  if (addCSABtn && !addCSABtn.dataset.csaClickWired) {
+    addCSABtn.dataset.csaClickWired = '1';
+    const handleAddCSA = function() {
+      // Visual feedback: scale the button
+      addCSABtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { addCSABtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Check globally if CSA already exists
+      const existsCheck = findButtonGlobally('CSA');
+      if (existsCheck.found) {
+        alert(`CSA existiert bereits in: ${existsCheck.location}`);
+        return;
+      }
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_csa_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list - use buttonId as label for uniqueness
+      let customButtons = [];
+      try { customButtons = JSON.parse(localStorage.getItem('custom_csa_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: buttonId });
+      localStorage.setItem('custom_csa_buttons', JSON.stringify(customButtons));
+      
+      // Create button with text "CSA"
+      const btn = document.createElement('button');
+      btn.textContent = 'CSA';
+      btn.className = 'btn csa-btn';
+      btn.style.border = '2px solid #ff8800';
+      btn.style.color = '#000';
+      btn.style.background = '#ff8800';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.dataset.fullLabel = 'CSA';
+      btn.dataset.customId = buttonId;
+      
+      // Add to DOM and make moveable
+      const csaBtnList = document.getElementById('csa-btn-list');
+      if (csaBtnList) {
+        csaBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'csa-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(csaBtnList);
+      }
+      
+      // Wire up click handler for sidebar
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
+    };
+    addCSABtn.addEventListener('click', handleAddCSA);
+  }
+  
+  // Sort CSA buttons by number after all buttons are rendered
+  const csaList = document.getElementById('csa-btn-list');
+  if (csaList) sortButtonsByNumber(csaList);
+  
+  // Add handler for "-" button to remove the last CSA
+  const removeCSABtn = document.getElementById('remove-csa-btn');
+  if (removeCSABtn && !removeCSABtn.dataset.csaRemoveWired) {
+    removeCSABtn.dataset.csaRemoveWired = '1';
+    const handleRemoveCSA = function() {
+      // Visual feedback: scale the button
+      removeCSABtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { removeCSABtn.style.transform = 'scale(1)'; }, 100);
+      
+      // Get custom CSA buttons
+      let customCSAButtons = [];
+      try { customCSAButtons = JSON.parse(localStorage.getItem('custom_csa_buttons') || '[]'); } catch (e) {}
+      
+      // Remove the last custom button if any exist
+      if (customCSAButtons.length > 0) {
+        const removedButton = customCSAButtons.pop();
+        localStorage.setItem('custom_csa_buttons', JSON.stringify(customCSAButtons));
+        
+        // Also remove any stored custom text for this button
+        try {
+          const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+          if (removedButton.label && customButtonTexts[removedButton.label]) {
+            delete customButtonTexts[removedButton.label];
+            localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+          }
+        } catch (e) {}
+        
+        // Re-render the page
+        if (typeof renderCSAListePage === 'function') {
+          renderCSAListePage();
+        }
+      }
+    };
+    removeCSABtn.addEventListener('click', handleRemoveCSA);
+  }
+}
+
