@@ -1227,6 +1227,7 @@ function showAuthModal(onSuccess) {
   pwInput.placeholder = 'Passwort';
   pwInput.className = 'search-input';
   pwInput.style.width = '100%';
+  pwInput.style.boxSizing = 'border-box';
   pwInput.style.color = '#000';
   pwInput.style.background = '#fff';
   pwInput.style.border = '1px solid #ccc';
@@ -1243,6 +1244,7 @@ function showAuthModal(onSuccess) {
   nameInput.placeholder = 'Name (Pflichtfeld)';
   nameInput.className = 'search-input';
   nameInput.style.width = '100%';
+  nameInput.style.boxSizing = 'border-box';
   nameInput.style.color = '#000';
   nameInput.style.background = '#fff';
   nameInput.style.border = '1px solid #ccc';
