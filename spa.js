@@ -1141,7 +1141,17 @@ function addLoginLog(name) {
 }
 
 function renderLoginLogWidget() {
+  // Only show on hauptmenu page
+  const currentPage = window.currentPageFile || window.location.pathname.split('/').pop();
+  const isMainPage = currentPage === 'hauptmenu' || currentPage === 'index.html' || currentPage === '';
+  
   let w = document.getElementById('login-log-widget');
+  if (!isMainPage) {
+    // Remove widget if on other pages
+    if (w) w.remove();
+    return;
+  }
+  
   if (!w) {
     w = document.createElement('div');
     w.id = 'login-log-widget';
