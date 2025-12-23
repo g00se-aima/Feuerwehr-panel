@@ -205,10 +205,23 @@ function updateClickToRemoveState(btn) {
       const isListPage = /(^|\/)liste-/i.test(pageFile || '');
       const label = (btn.dataset && btn.dataset.fullLabel) ? btn.dataset.fullLabel : ((btn.textContent||'').trim());
       const customId = btn.dataset && btn.dataset.customId;
+      const isERKBtn = btn.dataset && btn.dataset.erkType === 'erk';
+      const erkId = btn.dataset && btn.dataset.erkId;
+      
       if (!isListPage && pageFile) {
-        const id = (btn.dataset && btn.dataset.moveableId) ? String(btn.dataset.moveableId) : (label || '');
+        // For ERK buttons, use erkId as identifier; for others use moveableId or label
+        const id = isERKBtn ? erkId : ((btn.dataset && btn.dataset.moveableId) ? String(btn.dataset.moveableId) : (label || ''));
         try { removeMoveable(pageFile, id); } catch (_) {}
         if (btn.parentNode) btn.parentNode.removeChild(btn);
+        
+        // If this is an ERK button, return it to silschede
+        if (isERKBtn) {
+          try {
+            // Navigate to silschede and refresh to show the ERK button again
+            navigate('silschede');
+          } catch (_) {}
+          return;
+        }
         
         // Remove from removed-* lists to restore the button on home page after refresh
         // NOTE: Only update removed-* flags for PRE-DEFINED buttons. Custom buttons are tracked via isAssigned
@@ -1747,6 +1760,110 @@ function handleDeleteVehicle(groupKey, label) {
   renderPage(groupKey);
 }
 
+// --- Render Silschede Page with ERK buttons ---
+function renderSilschede() {
+  const container = document.getElementById('areas-container');
+  if (!container) return;
+  
+  // Define the two areas for ERK buttons
+  const areas = [
+    { title: 'Atemanschlüsse', areaId: 'atemanschluesse' },
+    { title: 'Atemschutzgeräte', areaId: 'atemschutzgeraete' }
+  ];
+  
+  // Create area divs
+  areas.forEach(area => {
+    const areaDiv = document.createElement('div');
+    areaDiv.className = 'moveable-area';
+    areaDiv.dataset.areaId = area.areaId;
+    
+    const title = document.createElement('h3');
+    title.className = 'area-title';
+    title.textContent = area.title;
+    areaDiv.appendChild(title);
+    
+    const content = document.createElement('div');
+    content.className = 'area-content';
+    areaDiv.appendChild(content);
+    
+    if (window.registerArea) window.registerArea(area.areaId, areaDiv);
+    container.appendChild(areaDiv);
+  });
+  
+  // Render 100 ERK buttons (50 in each area)
+  const erkCount = 100;
+  const buttonsPerArea = erkCount / 2;
+  
+  for (let i = 1; i <= erkCount; i++) {
+    const erkLabel = 'ERK';
+    const erkId = String(i);
+    
+    // Check if this ERK is assigned to a vehicle
+    let isAssigned = false;
+    const vehiclePages = [
+      '1-hlf20-1.html','1-hlf20-2.html','1-hlf20-3.html','1-dlk23-1.html','1-tlf4000-1.html',
+      '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html',
+      'tlf-azubi.html','hauptwache.html'
+    ];
+    
+    vehiclePages.forEach(pageFile => {
+      let moveables = [];
+      try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
+      (moveables||[]).forEach(m => {
+        if (m && m.label === erkLabel && m.type === 'erk' && m.erkId === erkId) {
+          isAssigned = true;
+        }
+      });
+    });
+    
+    // Only show unassigned ERK buttons in silschede
+    if (!isAssigned) {
+      const btn = document.createElement('button');
+      btn.textContent = erkLabel;
+      btn.className = 'btn';
+      btn.dataset.fullLabel = erkLabel;
+      btn.dataset.erkType = 'erk';
+      btn.dataset.erkId = erkId;
+      btn.style.border = '2px solid #3b82f6';
+      btn.style.color = '#fff';
+      btn.style.background = '#3b82f6';
+      btn.style.fontWeight = 'bold';
+      btn.style.margin = '6px';
+      btn.style.minWidth = '54px';
+      btn.style.minHeight = '44px';
+      btn.style.fontSize = '1.1rem';
+      btn.style.cursor = 'grab';
+      
+      // Wire up sidebar handler
+      try {
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          }, { passive: false });
+        }
+      } catch(_) {}
+      
+      // Determine which area to add button to (first 50 go to area 0, next 50 to area 1)
+      const areaIndex = i <= buttonsPerArea ? 0 : 1;
+      const areaId = areas[areaIndex].areaId;
+      
+      // Make button moveable
+      if (window.makeButtonMoveable) window.makeButtonMoveable(btn, areaId);
+      
+      // Add to appropriate area
+      const areaContent = container.querySelector(`[data-area-id="${areaId}"] .area-content`);
+      if (areaContent) areaContent.appendChild(btn);
+    }
+  }
+}
+
 // --- Render Hauptwache Page ---
 function renderHauptwachePage() {
   const main = document.getElementById('app-main');
@@ -2643,11 +2760,20 @@ function showAssignmentSidebar(moveableBtn) {
     sidebar.appendChild(splitSiBtn);
   }
 
-  // Edit button (purple)
+  // Edit button (purple) - disabled for ERK buttons
   const editBtn = document.createElement('button');
   editBtn.textContent = 'Text bearbeiten';
   editBtn.className = 'btn btn-purple';
   editBtn.style.marginBottom = '18px';
+  
+  // Check if this is an ERK button
+  const isERKBtn = moveableBtn.dataset && moveableBtn.dataset.erkType === 'erk';
+  if (isERKBtn) {
+    editBtn.style.opacity = '0.5';
+    editBtn.style.cursor = 'not-allowed';
+    editBtn.disabled = true;
+  }
+  
   editBtn.addEventListener('click', function() {
     const oldText = moveableBtn.textContent;
     const newText = prompt('Neuer Text für Button:', oldText);
@@ -3025,6 +3151,7 @@ function showAssignmentSidebar(moveableBtn) {
         // - TF when assigning to a specific vehicle => 'Sprungretter'|'Technikflaschen'
         // - X => only 'Messgeräte'
         // - CSA => only 'CSA'
+        // - ERK => only 'Atemanschlüsse' and 'Atemschutzgeräte'
         try {
           const text = (moveableBtn && (moveableBtn.textContent || '')).trim();
           const isFH = text.startsWith('FH ');
@@ -3032,12 +3159,16 @@ function showAssignmentSidebar(moveableBtn) {
           const isFL = text.startsWith('FL ');
           const isX = text.startsWith('X ');
           const isCSA = text.startsWith('CSA ');
+          const isERK = moveableBtn.dataset && moveableBtn.dataset.erkType === 'erk';
           // Use helper functions defined earlier in this scope to detect PA/combined PA
           const isPAItem = (typeof isPA === 'function' && isPA(moveableBtn)) || (typeof isCombinedPA === 'function' && isCombinedPA(moveableBtn)) || (/^\s*PA\s+\d+/i).test(text) || (/\bPA\s+\d+\s+mit\s+FL\s+\d+/i).test(text);
           const isAMItem = (/^\s*AM\s+\d+/i).test(text);
           const isSiItem = (typeof isSi === 'function' && isSi(moveableBtn)) || (typeof isCombinedSi === 'function' && isCombinedSi(moveableBtn)) || (/^\s*Si\s+\d+/i).test(text) || (/\bSi\s+\d+\s+mit\s+FL\s+\d+/i).test(text);
           const isLagerDest = dest && (/lager/i.test(dest) || dest === 'Lager Hauptwache' || dest === 'Lager AGW');
-          if (isFL) {
+          if (isERK) {
+            // ERK buttons can only go to two specific areas
+            filteredAreas = ['Atemanschlüsse', 'Atemschutzgeräte'];
+          } else if (isFL) {
             // FL buttons always go to Atemluftflaschen area, regardless of destination
             filteredAreas = ['Atemluftflaschen'];
           } else if (isSiItem) {
@@ -4458,6 +4589,18 @@ function renderPage(page) {
     try { renderPersonalMasksOverview(); } catch (_) {}
     const printBtn = document.getElementById('btn-print-inventory');
     if (printBtn) printBtn.addEventListener('click', () => window.print());
+  } else if (page === 'silschede') {
+    main.innerHTML = `
+      <div class="card center-col">
+        <h1 class="page-title">${pageObj.title}</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px">
+          <button class="btn btn-blue" onclick="navigate('von-silschede')">Von Silschede</button>
+          <button class="btn btn-blue" onclick="navigate('fuer-silschede')">Für Silschede</button>
+        </div>
+        <div id="areas-container" class="card" style="margin-top:8px;"></div>
+      </div>
+    `;
+    renderSilschede();
   } else {
     main.innerHTML = `
       <div class="card center-col">
