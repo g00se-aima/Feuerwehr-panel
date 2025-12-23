@@ -63,8 +63,6 @@
     <div style="margin-top:12px;text-align:right"><button class="btn btn-small" id="modal-save">Fertig</button></div>
   </div>
 </div>
-<script src="script.js"></script>
-<script src="areas.js"></script>
 <script>
 // Render only the requested areas in this order (Sprungretter removed):
 const requestedAreas = [
@@ -75,7 +73,8 @@ const requestedAreas = [
   'CSA',
   'Messgeräte',
   'Atemschutzmasken',
-  'Fluchthauben'
+  'Fluchthauben',
+  'ABEK Filter'
 ];
 const container = document.getElementById('areas-container');
 const seen = new Set();

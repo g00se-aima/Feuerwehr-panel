@@ -542,7 +542,23 @@ window.makeButtonMoveable = function(btn, homeAreaId) {
         // Clear removed_* flags so item reappears in its list
         try {
           const customId = btn.dataset && btn.dataset.customId;
-          if (/^PA\s+\d+/.test(label) || (customId && customId.startsWith('custom_pa_'))) {
+          // Check if this is a combined PA+FL button
+          const combinedMatch = label.match(/^PA\s+\d+\s+mit\s+FL\s+\d+/i);
+          if (combinedMatch) {
+            // Extract FL number from combined label and restore it
+            const flMatch = label.match(/FL\s+(\d+)/i);
+            if (flMatch) {
+              const flLabel = `FL ${flMatch[1]}`;
+              let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen')||'[]'); } catch(_) {}
+              if (Array.isArray(arr)) { const i = arr.indexOf(flLabel); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(arr)); }
+            }
+            // Also handle the PA part
+            const paMatch = label.match(/^PA\s+\d+/i);
+            if (paMatch) {
+              let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_pas_liste_pa')||'[]'); } catch(_) {}
+              if (Array.isArray(arr)) { const i = arr.indexOf(paMatch[0]); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_pas_liste_pa', JSON.stringify(arr)); }
+            }
+          } else if (/^PA\s+\d+/.test(label) || (customId && customId.startsWith('custom_pa_'))) {
             const base = (label.match(/^PA\s+\d+/i)||[''])[0];
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_pas_liste_pa')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(base); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_pas_liste_pa', JSON.stringify(arr)); }
@@ -927,6 +943,7 @@ function normalizeMoveableItem(item) {
   const out = {
     id: m.id || m.timestamp || null,
     label: (m.label || '').trim(),
+    baseLabel: m.baseLabel || '',
     className: m.className || '',
     style: m.style || '',
     areaId: m.areaId || '',
@@ -1141,9 +1158,9 @@ function addLoginLog(name) {
 }
 
 function renderLoginLogWidget() {
-  // Only show on hauptmenu page
-  const currentPage = window.currentPageFile || window.location.pathname.split('/').pop();
-  const isMainPage = currentPage === 'hauptmenu' || currentPage === 'index.html' || currentPage === '';
+  // Only show on hauptmenu page (check SPA routing hash)
+  const currentSpaPage = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+  const isMainPage = currentSpaPage === 'hauptmenu';
   
   let w = document.getElementById('login-log-widget');
   if (!isMainPage) {
@@ -1293,8 +1310,9 @@ function showAuthModal(onSuccess) {
     setAuthSession(nm, 60);
     addLoginLog(nm);
     try { document.body.removeChild(overlay); } catch (_) {}
-    renderLoginLogWidget();
     if (typeof onSuccess === 'function') onSuccess();
+    // Render login widget after navigation has completed (delay to ensure hash is updated)
+    setTimeout(() => { try { renderLoginLogWidget(); } catch (_) {} }, 100);
   });
 
   pwInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') next.click(); });
@@ -1979,6 +1997,8 @@ function renderMoveableButtons(container, numbers, prefix, className, styleFn) {
     container.appendChild(btn);
   });
 }
+// Expose globally so renderers can call it
+window.renderMoveableButtons = renderMoveableButtons;
 // --- Render Löschzug Milspe Page ---
 function renderLoeschzugMilspePage() {
   const main = document.getElementById('app-main');
@@ -2534,6 +2554,14 @@ function showAssignmentSidebar(moveableBtn) {
       const paOnly = (moveableBtn.textContent||'').match(/PA\s+\d+/i);
       moveableBtn.textContent = paOnly ? paOnly[0] : 'PA';
       moveableBtn.classList.remove('combo-fl-gold','combo-fl-grey');
+      // Restore PA button styling
+      moveableBtn.style.border = '2px solid #888';
+      moveableBtn.style.color = '#bbb';
+      moveableBtn.style.background = '#111';
+      moveableBtn.style.fontWeight = 'bold';
+      moveableBtn.style.display = 'flex';
+      moveableBtn.style.alignItems = 'center';
+      moveableBtn.style.justifyContent = 'center';
       if (moveableBtn.dataset) {
         delete moveableBtn.dataset.combo;
         delete moveableBtn.dataset.paNumber;
@@ -2711,7 +2739,8 @@ function showAssignmentSidebar(moveableBtn) {
   // Personal mask assignment: allow turning an AM into a personal mask and moving it to
   // a specified site with a person's name. Only for AM buttons.
   try {
-    if (/^\s*AM\s+\d+/i.test((moveableBtn.textContent||''))) {
+    const isAMButton = /^\s*AM\s+\d+/i.test((moveableBtn.textContent||'')) || (moveableBtn.dataset && moveableBtn.dataset.customId && moveableBtn.dataset.customId.startsWith('custom_am_'));
+    if (isAMButton) {
       const personalBtn = document.createElement('button');
       personalBtn.textContent = 'Persönliche Maske';
       personalBtn.className = 'btn btn-purple';
@@ -2802,9 +2831,13 @@ function showAssignmentSidebar(moveableBtn) {
               if (moveableBtn.parentNode) moveableBtn.parentNode.removeChild(moveableBtn);
               // Save into target moveables (use canonical key and stable id)
               const idToUse = (moveableBtn && moveableBtn.dataset && moveableBtn.dataset.moveableId) ? moveableBtn.dataset.moveableId : makeMoveableId();
+              // Determine baseLabel (the original AM number)
+              const amBaseMatch = (moveableBtn.textContent || '').match(/^AM\s+\d+/i);
+              const amBaseLabel = amBaseMatch ? amBaseMatch[0] : '';
               upsertMoveable(targetFile, {
                 id: idToUse,
                 label: newLabel,
+                baseLabel: amBaseLabel,
                 areaId: areaId,
                 areaTitle: areaTitle,
                 className: moveableBtn.className,
@@ -3047,15 +3080,41 @@ function showAssignmentSidebar(moveableBtn) {
               else if (comboSel.si) labelToSave = `Si ${comboSel.si} mit FL ${comboSel.fl}`;
             }
             
-            // Extract and preserve the canonical base label from fullLabel or labelToSave
+            // Extract and preserve the canonical base label from fullLabel, moveableId, or custom storage
             let baseLabel = '';
             try {
-              const fullLabel = (moveableBtn.dataset && moveableBtn.dataset.fullLabel) || labelToSave;
-              const baseMatch = fullLabel.match(/^(PA|FL|TF|FH|AM|Si|X|CSA)\s+(\d+)/i);
-              if (baseMatch) {
-                const prefix = baseMatch[1].toUpperCase();
-                const num = baseMatch[2];
-                baseLabel = `${prefix} ${num}`;
+              // Try fullLabel first (most reliable - set during button creation)
+              const fullLabel = (moveableBtn.dataset && moveableBtn.dataset.fullLabel) || '';
+              if (fullLabel) {
+                const baseMatch = fullLabel.match(/^(PA|FL|TF|FH|AM|Si|X|CSA)\s+(\d+)/i);
+                if (baseMatch) {
+                  const prefix = baseMatch[1].toUpperCase();
+                  const num = baseMatch[2];
+                  baseLabel = `${prefix} ${num}`;
+                }
+              }
+              
+              // Fallback: if no fullLabel match, check custom_button_texts keys to find the original label
+              if (!baseLabel) {
+                try {
+                  const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+                  for (const [key, val] of Object.entries(customButtonTexts)) {
+                    if (val === labelToSave && /^(PA|FL|TF|FH|AM|Si|X|CSA)\s+\d+/i.test(key)) {
+                      baseLabel = key;
+                      break;
+                    }
+                  }
+                } catch (_) {}
+              }
+              
+              // Last resort: try to extract pattern from labelToSave
+              if (!baseLabel) {
+                const baseMatch = labelToSave.match(/^(PA|FL|TF|FH|AM|Si|X|CSA)\s+(\d+)/i);
+                if (baseMatch) {
+                  const prefix = baseMatch[1].toUpperCase();
+                  const num = baseMatch[2];
+                  baseLabel = `${prefix} ${num}`;
+                }
               }
             } catch (_) {}
             
@@ -3983,8 +4042,8 @@ function renderHeader(page) {
         <div id="search-dropdown" style="display:none;position:absolute;right:0;top:38px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);z-index:100;width:360px;max-width:90vw;overflow:auto"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-grey btn-small" id="btn-export">Backup download</button>
-        <button class="btn btn-grey btn-small" id="btn-import">Restore backup</button>
+        <button class="btn btn-grey btn-small" id="btn-export">Speichern</button>
+        <button class="btn btn-grey btn-small" id="btn-import">Aus Datei Laden</button>
         <input type="file" id="import-file" style="display:none" accept=".json"/>
         <span id="app-version" style="color:#888;font-size:12px;white-space:nowrap">v${(window.APP_VERSION||'')}</span>
       </div>
@@ -4200,6 +4259,8 @@ function renderPage(page) {
       try { el.remove(); } catch (_) {}
     }
   });
+  // Update login widget visibility based on current page
+  try { renderLoginLogWidget(); } catch (_) {}
   const pageObj = window.pages[page];
   if (!pageObj) return;
   if (page === 'hauptmenu') {
@@ -4504,6 +4565,7 @@ function renderVehiclePage(page) {
   try { moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(pageFile)) || '[]'); } catch (e) {}
   // Sort moveables by their numeric value for consistent ordering
   moveables = sortMoveablesByNumber(moveables);
+  const isLagerOrSilschede = /lager|silschede/i.test(pageFile);
   moveables.forEach(m => {
   const areaRoot = (typeof window.getArea === 'function' ? window.getArea(m.areaId) : null) ||
            mainContainer.querySelector(`.moveable-area[data-area-id="${m.areaId}"]`);
@@ -4595,6 +4657,14 @@ function renderVehiclePage(page) {
       btn.dataset.currentArea = m.areaId;
       // Update click-to-remove state based on home vs current area
       updateClickToRemoveState(btn);
+      // For lager and silschede pages, add click handler to open assignment sidebar
+      if (isLagerOrSilschede && typeof showAssignmentSidebar === 'function') {
+        btn.addEventListener('click', function(e) {
+          if (e.button === 0 && !btn.classList.contains('dragging')) {
+            showAssignmentSidebar(btn);
+          }
+        });
+      }
     }
   });
 }
@@ -4817,13 +4887,6 @@ function renderFLListePage() {
       addFLBtn.style.transform = 'scale(0.9)';
       setTimeout(() => { addFLBtn.style.transform = 'scale(1)'; }, 100);
       
-      // Check if "FL" already exists globally
-      const existsCheck = findButtonGlobally('FL');
-      if (existsCheck.found) {
-        alert(`FL existiert bereits in: ${existsCheck.location}`);
-        return;
-      }
-      
       // Ask user to choose golden or grey with options
       const colorChoice = prompt('Flasche Farbe wählen:\n1 = Golden\n2 = Grau', '1');
       if (colorChoice === null) {
@@ -4832,18 +4895,39 @@ function renderFLListePage() {
       }
       const flColor = colorChoice === '2' ? 'grey' : 'golden';
       
+      // Prompt for button text
+      const buttonText = prompt('Name für neue Atemluftflaschen-Button:', 'FL');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
+        return;
+      }
+      
       // Generate a unique ID for this new button
       const buttonId = 'custom_fl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       
-      // Store in custom buttons list with color - use buttonId as label for uniqueness
+      // Store in custom buttons list with color
       let customButtons = [];  
       try { customButtons = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]'); } catch (e) {}
       customButtons.push({ id: buttonId, label: buttonId, color: flColor });
       localStorage.setItem('custom_fl_buttons', JSON.stringify(customButtons));
       
-      // Create a generic "FL" button with the chosen color
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'FL';
+      btn.textContent = buttonText;
       btn.className = 'btn fl-btn';
       
       // Apply color styling
@@ -4861,7 +4945,7 @@ function renderFLListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'FL';
+      btn.dataset.fullLabel = buttonId;
       btn.dataset.customId = buttonId;
       btn.dataset.flColor = flColor;
       
@@ -5129,10 +5213,40 @@ function renderTFListePage() {
         return;
       }
       
-      // Create a generic "TF" button - user will edit via "Text bearbeiten"
+      // Prompt for button text immediately
+      const buttonText = prompt('Name für neue Technikflaschen-Button:', 'TF');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
+        return;
+      }
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_tf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list
+      let customButtons = [];  
+      try { customButtons = JSON.parse(localStorage.getItem('custom_tf_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: buttonId });
+      localStorage.setItem('custom_tf_buttons', JSON.stringify(customButtons));
+      
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'TF';
-      btn.className = 'tf-btn';
+      btn.textContent = buttonText;
+      btn.className = 'btn tf-btn';
       btn.style.border = '2px solid #4ade80';
       btn.style.color = '#4ade80';
       btn.style.background = '#111';
@@ -5141,7 +5255,24 @@ function renderTFListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'TF';
+      btn.dataset.fullLabel = buttonId;
+      btn.dataset.customId = buttonId;
+      
+      // Wire up click handler for sidebar BEFORE adding to DOM
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
       
       // Make it moveable and add to DOM
       const tfBtnList = document.getElementById('tf-btn-list');
@@ -5393,10 +5524,40 @@ function renderFHListePage() {
         return;
       }
       
-      // Create a generic "FH" button - user will edit via "Text bearbeiten"
+      // Prompt for button text immediately
+      const buttonText = prompt('Name für neuen Fluchthaube-Button:', 'FH');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
+        return;
+      }
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_fh_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list
+      let customButtons = [];  
+      try { customButtons = JSON.parse(localStorage.getItem('custom_fh_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: buttonId });
+      localStorage.setItem('custom_fh_buttons', JSON.stringify(customButtons));
+      
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'FH';
-      btn.className = 'fh-btn';
+      btn.textContent = buttonText;
+      btn.className = 'btn fh-btn';
       btn.style.border = '2px solid #bfa100';
       btn.style.color = '#bfa100';
       btn.style.background = '#111';
@@ -5405,7 +5566,24 @@ function renderFHListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'FH';
+      btn.dataset.fullLabel = buttonId;
+      btn.dataset.customId = buttonId;
+      
+      // Wire up click handler for sidebar BEFORE adding to DOM
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
       
       // Make it moveable and add to DOM
       const fhBtnList = document.getElementById('fh-btn-list');
@@ -5611,14 +5789,14 @@ function renderAMListePage() {
       btn.dataset.fullLabel = customBtn.label;
       btn.dataset.customId = customBtn.id;
       btn.className = 'btn am-btn';
-      btn.style.border = '2px solid #ff9800';
-      btn.style.color = '#ff9800';
-      btn.style.background = '#111';
-      btn.style.fontWeight = 'bold';
+      btn.style.border = '1px solid #000';
+      btn.style.color = '#000';
+      btn.style.background = '#fff';
+      btn.style.fontWeight = '600';
       btn.style.margin = '6px';
-      btn.style.minWidth = '54px';
-      btn.style.minHeight = '44px';
-      btn.style.fontSize = '1.1rem';
+      btn.style.minWidth = '48px';
+      btn.style.minHeight = '40px';
+      btn.style.fontSize = '1rem';
       if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'am-btn-list');
       try { 
         if (typeof showAssignmentSidebar === 'function') {
@@ -5653,19 +5831,66 @@ function renderAMListePage() {
         return;
       }
       
-      // Create a generic "AM" button - user will edit via "Text bearbeiten"
+      // Prompt for button text immediately
+      const buttonText = prompt('Name für neuen Atemschutzmasken-Button:', 'AM');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
+        return;
+      }
+      
+      // Generate a unique ID for this new button
+      const buttonId = 'custom_am_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      
+      // Store in custom buttons list
+      let customButtons = [];  
+      try { customButtons = JSON.parse(localStorage.getItem('custom_am_buttons') || '[]'); } catch (e) {}
+      customButtons.push({ id: buttonId, label: buttonId });
+      localStorage.setItem('custom_am_buttons', JSON.stringify(customButtons));
+      
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'AM';
-      btn.className = 'am-btn';
-      btn.style.border = '2px solid #ff9800';
-      btn.style.color = '#ff9800';
-      btn.style.background = '#111';
-      btn.style.fontWeight = 'bold';
+      btn.textContent = buttonText;
+      btn.className = 'btn am-btn';
+      btn.style.border = '1px solid #000';
+      btn.style.color = '#000';
+      btn.style.background = '#fff';
+      btn.style.fontWeight = '600';
       btn.style.margin = '6px';
-      btn.style.minWidth = '54px';
-      btn.style.minHeight = '44px';
-      btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'AM';
+      btn.style.minWidth = '48px';
+      btn.style.minHeight = '40px';
+      btn.style.fontSize = '1rem';
+      btn.dataset.fullLabel = buttonId;
+      btn.dataset.customId = buttonId;
+      
+      // Wire up click handler for sidebar BEFORE adding to DOM
+      try { 
+        if (typeof showAssignmentSidebar === 'function') {
+          const sidebarHandler = function() { showAssignmentSidebar(btn); };
+          btn.addEventListener('click', sidebarHandler);
+          btn.addEventListener('touchend', function(e) {
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch && !btn.classList.contains('dragging')) {
+              e.preventDefault();
+              e.stopPropagation();
+              sidebarHandler();
+            }
+          });
+        }
+      } catch(_) {}
       
       // Make it moveable and add to DOM
       const amBtnList = document.getElementById('am-btn-list');
@@ -6231,18 +6456,39 @@ function renderSIListePage() {
         return;
       }
       
+      // Prompt for button text immediately
+      const buttonText = prompt('Name für neue Sicherheitstrupptasche-Button:', 'Si');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
+        return;
+      }
+      
       // Generate a unique ID for this new button
       const buttonId = 'custom_si_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       
-      // Store in custom buttons list - use buttonId as label for uniqueness
+      // Store in custom buttons list
       let customButtons = [];
       try { customButtons = JSON.parse(localStorage.getItem('custom_si_buttons') || '[]'); } catch (e) {}
       customButtons.push({ id: buttonId, label: buttonId });
       localStorage.setItem('custom_si_buttons', JSON.stringify(customButtons));
       
-      // Create button with text "Si"
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'Si';
+      btn.textContent = buttonText;
       btn.className = 'btn si-btn';
       btn.style.border = '2px solid #ff6b6b';
       btn.style.color = '#ff6b6b';
@@ -6252,19 +6498,10 @@ function renderSIListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'Si';
+      btn.dataset.fullLabel = buttonId;
       btn.dataset.customId = buttonId;
       
-      // Add to DOM and make moveable
-      const siBtnList = document.getElementById('si-btn-list');
-      if (siBtnList) {
-        siBtnList.appendChild(btn);
-        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'si-btn-list');
-        // Sort buttons after adding the new one
-        sortButtonsByNumber(siBtnList);
-      }
-      
-      // Wire up click handler for sidebar
+      // Wire up click handler for sidebar BEFORE adding to DOM
       try { 
         if (typeof showAssignmentSidebar === 'function') {
           const sidebarHandler = function() { showAssignmentSidebar(btn); };
@@ -6279,6 +6516,15 @@ function renderSIListePage() {
           });
         }
       } catch(_) {}
+      
+      // Add to DOM and make moveable
+      const siBtnList = document.getElementById('si-btn-list');
+      if (siBtnList) {
+        siBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'si-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(siBtnList);
+      }
     };
     addSiBtn.addEventListener('click', handleAddSi);
   }
@@ -6507,10 +6753,17 @@ function renderXListePage() {
       addXBtn.style.transform = 'scale(0.9)';
       setTimeout(() => { addXBtn.style.transform = 'scale(1)'; }, 100);
       
-      // Check globally if X already exists
-      const existsCheck = findButtonGlobally('X');
-      if (existsCheck.found) {
-        alert(`X existiert bereits in: ${existsCheck.location}`);
+      // Prompt for button text immediately
+      const buttonText = prompt('Name für neue Messgeräte-Button:', 'X');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
         return;
       }
       
@@ -6520,12 +6773,19 @@ function renderXListePage() {
       // Store in custom buttons list
       let customButtons = [];
       try { customButtons = JSON.parse(localStorage.getItem('custom_x_buttons') || '[]'); } catch (e) {}
-      customButtons.push({ id: buttonId, label: 'X' });
+      customButtons.push({ id: buttonId, label: buttonId });
       localStorage.setItem('custom_x_buttons', JSON.stringify(customButtons));
       
-      // Create button with text "X"
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'X';
+      btn.textContent = buttonText;
       btn.className = 'btn x-btn';
       btn.style.border = '2px solid #6b3e26';
       btn.style.color = '#fff';
@@ -6535,19 +6795,10 @@ function renderXListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'X';
+      btn.dataset.fullLabel = buttonId;
       btn.dataset.customId = buttonId;
       
-      // Add to DOM and make moveable
-      const xBtnList = document.getElementById('x-btn-list');
-      if (xBtnList) {
-        xBtnList.appendChild(btn);
-        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'x-btn-list');
-        // Sort buttons after adding the new one
-        sortButtonsByNumber(xBtnList);
-      }
-      
-      // Wire up click handler for sidebar
+      // Wire up click handler for sidebar BEFORE adding to DOM
       try { 
         if (typeof showAssignmentSidebar === 'function') {
           const sidebarHandler = function() { showAssignmentSidebar(btn); };
@@ -6562,6 +6813,15 @@ function renderXListePage() {
           });
         }
       } catch(_) {}
+      
+      // Add to DOM and make moveable
+      const xBtnList = document.getElementById('x-btn-list');
+      if (xBtnList) {
+        xBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'x-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(xBtnList);
+      }
     };
     addXBtn.addEventListener('click', handleAddX);
   }
@@ -7419,19 +7679,40 @@ function renderPAListePage() {
         return;
       }
       
+      // Prompt for button text immediately
+      const buttonText = prompt('Name für neue PA-Button:', 'PA');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
+        return;
+      }
+      
       // Generate a unique ID for this new button
       const buttonId = 'custom_pa_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       
-      // Store in custom buttons list - use buttonId as label for uniqueness
+      // Store in custom buttons list
       let customButtons = [];
       try { customButtons = JSON.parse(localStorage.getItem('custom_pa_buttons') || '[]'); } catch (e) {}
       customButtons.push({ id: buttonId, label: buttonId });
       localStorage.setItem('custom_pa_buttons', JSON.stringify(customButtons));
       
-      // Create a generic "PA" button - user will edit via "Text bearbeiten"
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'PA';
-      btn.className = 'pa-btn';
+      btn.textContent = buttonText;
+      btn.className = 'btn pa-btn';
       btn.style.border = '2px solid #888';
       btn.style.color = '#bbb';
       btn.style.background = '#111';
@@ -7440,19 +7721,10 @@ function renderPAListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'PA';
+      btn.dataset.fullLabel = buttonId;
       btn.dataset.customId = buttonId;
       
-      // Make it moveable and add to DOM
-      const paBtnList = document.getElementById('pa-btn-list');
-      if (paBtnList) {
-        paBtnList.appendChild(btn);
-        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'pa-btn-list');
-        // Sort buttons after adding the new one
-        sortButtonsByNumber(paBtnList);
-      }
-      
-      // Wire up click handler for sidebar
+      // Wire up click handler for sidebar BEFORE adding to DOM
       try { 
         if (typeof showAssignmentSidebar === 'function') {
           const sidebarHandler = function() { showAssignmentSidebar(btn); };
@@ -7467,6 +7739,15 @@ function renderPAListePage() {
           });
         }
       } catch(_) {}
+      
+      // Make it moveable and add to DOM
+      const paBtnList = document.getElementById('pa-btn-list');
+      if (paBtnList) {
+        paBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'pa-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(paBtnList);
+      }
     };
     addPABtn.addEventListener('click', handleAddPA);
   }
@@ -7555,8 +7836,11 @@ window.addEventListener('DOMContentLoaded', function() {
     renderPage(requested);
   }
   window.navigate = navigate; // Expose for inline onclick
-  // Render login log widget on load
-  try { renderLoginLogWidget(); } catch (_) {}
+  // Render login log widget on load (only if on hauptmenu)
+  const initialPage = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+  if (initialPage === 'hauptmenu') {
+    try { renderLoginLogWidget(); } catch (_) {}
+  }
   // Wire header backup/import/fullscreen buttons (if present)
   setTimeout(() => {
     try {
@@ -7846,25 +8130,39 @@ function renderCSAListePage() {
       addCSABtn.style.transform = 'scale(0.9)';
       setTimeout(() => { addCSABtn.style.transform = 'scale(1)'; }, 100);
       
-      // Check globally if CSA already exists
-      const existsCheck = findButtonGlobally('CSA');
-      if (existsCheck.found) {
-        alert(`CSA existiert bereits in: ${existsCheck.location}`);
+      // Prompt for button text immediately
+      const buttonText = prompt('Name für neue CSA-Button:', 'CSA');
+      if (buttonText === null || buttonText.trim() === '') {
+        // User clicked Cancel or entered empty string
+        return;
+      }
+      
+      // CHECK FOR DUPLICATES - button text must be unique
+      const duplicateCheck = findButtonGlobally(buttonText);
+      if (duplicateCheck.found) {
+        alert(`${buttonText} existiert bereits in: ${duplicateCheck.location}`);
         return;
       }
       
       // Generate a unique ID for this new button
       const buttonId = 'custom_csa_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       
-      // Store in custom buttons list - use buttonId as label for uniqueness
+      // Store in custom buttons list
       let customButtons = [];
       try { customButtons = JSON.parse(localStorage.getItem('custom_csa_buttons') || '[]'); } catch (e) {}
       customButtons.push({ id: buttonId, label: buttonId });
       localStorage.setItem('custom_csa_buttons', JSON.stringify(customButtons));
       
-      // Create button with text "CSA"
+      // Store custom button text
+      try {
+        const customButtonTexts = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+        customButtonTexts[buttonId] = buttonText;
+        localStorage.setItem('custom_button_texts', JSON.stringify(customButtonTexts));
+      } catch (e) {}
+      
+      // Create button with entered text
       const btn = document.createElement('button');
-      btn.textContent = 'CSA';
+      btn.textContent = buttonText;
       btn.className = 'btn csa-btn';
       btn.style.border = '2px solid #ff8800';
       btn.style.color = '#000';
@@ -7874,19 +8172,10 @@ function renderCSAListePage() {
       btn.style.minWidth = '54px';
       btn.style.minHeight = '44px';
       btn.style.fontSize = '1.1rem';
-      btn.dataset.fullLabel = 'CSA';
+      btn.dataset.fullLabel = buttonId;
       btn.dataset.customId = buttonId;
       
-      // Add to DOM and make moveable
-      const csaBtnList = document.getElementById('csa-btn-list');
-      if (csaBtnList) {
-        csaBtnList.appendChild(btn);
-        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'csa-btn-list');
-        // Sort buttons after adding the new one
-        sortButtonsByNumber(csaBtnList);
-      }
-      
-      // Wire up click handler for sidebar
+      // Wire up click handler for sidebar BEFORE adding to DOM
       try { 
         if (typeof showAssignmentSidebar === 'function') {
           const sidebarHandler = function() { showAssignmentSidebar(btn); };
@@ -7901,6 +8190,15 @@ function renderCSAListePage() {
           });
         }
       } catch(_) {}
+      
+      // Add to DOM and make moveable
+      const csaBtnList = document.getElementById('csa-btn-list');
+      if (csaBtnList) {
+        csaBtnList.appendChild(btn);
+        if (window.makeButtonMoveable) window.makeButtonMoveable(btn, 'csa-btn-list');
+        // Sort buttons after adding the new one
+        sortButtonsByNumber(csaBtnList);
+      }
     };
     addCSABtn.addEventListener('click', handleAddCSA);
   }

@@ -42,7 +42,10 @@
     </div>
   </div>
 </header>
-<main class="container"><div class="card" id="app"></div></main>
+<main class="container">
+  <div class="card" id="app"></div>
+  <div id="areas-container"></div>
+</main>
 <!-- modal editor -->
 <div id="modal" style="position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(12,12,18,0.45);display:none;align-items:center;justify-content:center;z-index:80" role="dialog" aria-hidden="true">
   <div style="background:#fff;padding:16px;border-radius:12px;min-width:320px;max-width:760px;box-shadow:0 10px 40px rgba(0,0,0,0.16)">
@@ -60,6 +63,25 @@
     <div style="margin-top:12px;text-align:right"><button class="btn btn-small" id="modal-save">Fertig</button></div>
   </div>
 </div>
-<script src="script.js"></script>
-</body>
+<script src="areas.js"></script>
+<script>
+  // Initialize vehicle page with centralized handler
+  document.addEventListener('DOMContentLoaded', function() {
+    const requestedAreas = [
+      'Sprungretter',
+      'Atemschutzgeräte',
+      'Atemluftflaschen',
+      'Fluchthauben',
+      'Technikflaschen',
+      'Sicherheitstrupptasche',
+      'CSA',
+      'Messgeräte',
+      'Atemschutzmasken',
+      'Fluchthauben'
+    ];
+    if (typeof window.initializeVehiclePage === 'function') {
+      window.initializeVehiclePage(requestedAreas);
+    }
+  });
+</script>
 </html>
