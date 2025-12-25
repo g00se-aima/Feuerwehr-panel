@@ -229,24 +229,53 @@ function updateClickToRemoveState(btn) {
         if (!customId) {
           try {
             const baseLabel = (btn.dataset && btn.dataset.fullLabel) || '';
-            let prefix = '';
             
-            // Determine prefix: extract from baseLabel for pre-defined buttons
-            if (baseLabel) {
-              const match = baseLabel.match(/^([A-Z]+)/i);
-              if (match) {
-                prefix = match[1].toUpperCase();
-              }
-            }
+            // Check if this is a combined button (PA mit FL or Si mit FL)
+            const isCombinedPA = /^PA\s+\d+\s+mit\s+FL\s+\d+/i.test(baseLabel);
+            const isCombinedSi = /^Si\s+\d+\s+mit\s+FL\s+\d+/i.test(baseLabel);
             
-            if (prefix === 'PA') {
-              let removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]');
-              const idx = removedPAs.indexOf(baseLabel);
-              if (idx !== -1) {
-                removedPAs.splice(idx, 1);
-                localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+            if (isCombinedPA) {
+              // For combined PA+FL, only restore PA (FL stays hidden as it's part of the combo)
+              const paMatch = baseLabel.match(/^PA\s+\d+/i);
+              if (paMatch) {
+                let removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]');
+                const idx = removedPAs.indexOf(paMatch[0]);
+                if (idx !== -1) {
+                  removedPAs.splice(idx, 1);
+                  localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+                }
               }
-            } else if (prefix === 'FL') {
+            } else if (isCombinedSi) {
+              // For combined Si+FL, only restore Si (FL stays hidden as it's part of the combo)
+              const siMatch = baseLabel.match(/^Si\s+\d+/i);
+              if (siMatch) {
+                let removedSis = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen') || '[]');
+                const idx = removedSis.indexOf(siMatch[0]);
+                if (idx !== -1) {
+                  removedSis.splice(idx, 1);
+                  localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(removedSis));
+                }
+              }
+            } else {
+              // Handle single buttons (non-combined)
+              let prefix = '';
+              
+              // Determine prefix: extract from baseLabel for pre-defined buttons
+              if (baseLabel) {
+                const match = baseLabel.match(/^([A-Z]+)/i);
+                if (match) {
+                  prefix = match[1].toUpperCase();
+                }
+              }
+              
+              if (prefix === 'PA') {
+                let removedPAs = JSON.parse(localStorage.getItem('removed_pas_liste_pa') || '[]');
+                const idx = removedPAs.indexOf(baseLabel);
+                if (idx !== -1) {
+                  removedPAs.splice(idx, 1);
+                  localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removedPAs));
+                }
+              } else if (prefix === 'FL') {
               let removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]');
               const idx = removedFLs.indexOf(baseLabel);
               if (idx !== -1) {
@@ -294,6 +323,7 @@ function updateClickToRemoveState(btn) {
               if (idx !== -1) {
                 removedCSAs.splice(idx, 1);
                 localStorage.setItem('removed_csas_liste_csa', JSON.stringify(removedCSAs));
+              }
               }
             }
           } catch (_) {}
@@ -400,6 +430,11 @@ window.registerArea = function(areaId, element) {
             areaId: areaId,
             fromPage: (function(){
               try {
+                // Check for combined PA+FL button
+                if (/^PA\s+\d+\s+mit\s+FL\s+\d+/i.test(label)) return 'liste-pa.html';
+                // Check for combined Si+FL button
+                if (/^Si\s+\d+\s+mit\s+FL\s+\d+/i.test(label)) return 'liste-sicherheitstrupptaschen.html';
+                // Original logic for single buttons
                 if (/^PA\s+\d+/.test(label)) return 'liste-pa.html';
                 if (/^FL\s+\d+/.test(label)) return 'liste-atemluftflaschen.html';
                 if (/^FH\s+\d+/.test(label)) return 'liste-fluchthauben.html';
@@ -454,31 +489,8 @@ window.registerArea = function(areaId, element) {
           if (areaId === 'pa-btn-list') { if (idx !== -1) removed.splice(idx,1); } else if (idx === -1) removed.push(base);
           try { localStorage.setItem('removed_pas_liste_pa', JSON.stringify(removed)); } catch(_) {}
           
-          // If it's a combined PA+FL button, also handle the FL removal
-          if (label.includes(' mit FL ')) {
-            const flMatch = label.match(/FL\s+(\d+)/);
-            if (flMatch) {
-              const flNumber = parseInt(flMatch[1], 10);
-              const paNumber = parseInt((label.match(/^PA\s+(\d+)/)||['',''])[1], 10);
-              
-              if (areaId !== 'pa-btn-list') {
-                // Button is being moved away from list, mark FL as removed
-                let removedFLs = [];
-                try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch(_) { removedFLs = []; }
-                const flLabel = `FL ${flNumber}`;
-                if (!removedFLs.includes(flLabel)) removedFLs.push(flLabel);
-                try { localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs)); } catch(_) {}
-              } else {
-                // Button is returning to list, unmark FL as removed
-                let removedFLs = [];
-                try { removedFLs = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen') || '[]'); } catch(_) { removedFLs = []; }
-                const flLabel = `FL ${flNumber}`;
-                const flIdx = removedFLs.indexOf(flLabel);
-                if (flIdx !== -1) removedFLs.splice(flIdx, 1);
-                try { localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(removedFLs)); } catch(_) {}
-              }
-            }
-          }
+          // For combined PA+FL buttons, don't separately handle FL - keep them together
+          // The combined button is handled as a single unit, not split into parts
         }
         // Sicherheitstrupptaschen (Si)
         else if (/^Si\s+\d+$/i.test(label) || (customId && customId.startsWith('custom_si_'))) {
@@ -558,19 +570,19 @@ window.makeButtonMoveable = function(btn, homeAreaId) {
           // Check if this is a combined PA+FL button
           const combinedMatch = label.match(/^PA\s+\d+\s+mit\s+FL\s+\d+/i);
           if (combinedMatch) {
-            // Extract FL number from combined label and restore it
+            // For combined buttons, only restore the PA part (FL stays hidden as part of combo)
+            const paMatch = label.match(/^PA\s+(\d+)/i);
             const flMatch = label.match(/FL\s+(\d+)/i);
-            if (flMatch) {
-              const flLabel = `FL ${flMatch[1]}`;
-              let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen')||'[]'); } catch(_) {}
-              if (Array.isArray(arr)) { const i = arr.indexOf(flLabel); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(arr)); }
-            }
-            // Also handle the PA part
-            const paMatch = label.match(/^PA\s+\d+/i);
-            if (paMatch) {
+            if (paMatch && flMatch) {
+              const paNum = parseInt(paMatch[1], 10);
+              const flNum = parseInt(flMatch[1], 10);
+              // Restore the combined mapping
+              try { if (typeof upsertCombinedPA === 'function') upsertCombinedPA(paNum, flNum); } catch(_) {}
+              // Restore PA to unremoved list
               let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_pas_liste_pa')||'[]'); } catch(_) {}
               if (Array.isArray(arr)) { const i = arr.indexOf(paMatch[0]); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_pas_liste_pa', JSON.stringify(arr)); }
             }
+            // Do NOT restore FL separately - it's part of the combo
           } else if (/^PA\s+\d+/.test(label) || (customId && customId.startsWith('custom_pa_'))) {
             const base = (label.match(/^PA\s+\d+/i)||[''])[0];
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_pas_liste_pa')||'[]'); } catch(_) {}
@@ -586,8 +598,27 @@ window.makeButtonMoveable = function(btn, homeAreaId) {
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_fhs_liste_fluchthauben')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_fhs_liste_fluchthauben', JSON.stringify(arr)); }
           } else if (/^Si\s+\d+/.test(label) || (customId && customId.startsWith('custom_si_'))) {
-            let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen')||'[]'); } catch(_) {}
-            if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(arr)); }
+            // Check if this is a combined Si+FL button
+            const combinedSiMatch = label.match(/^Si\s+\d+\s+mit\s+FL\s+\d+/i);
+            if (combinedSiMatch) {
+              // For combined buttons, only restore the Si part (FL stays hidden as part of combo)
+              const siMatch = label.match(/^Si\s+(\d+)/i);
+              const flMatch = label.match(/FL\s+(\d+)/i);
+              if (siMatch && flMatch) {
+                const siNum = parseInt(siMatch[1], 10);
+                const flNum = parseInt(flMatch[1], 10);
+                // Restore the combined mapping
+                try { if (typeof upsertCombinedSi === 'function') upsertCombinedSi(siNum, flNum); } catch(_) {}
+                // Restore Si to unremoved list
+                let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen')||'[]'); } catch(_) {}
+                if (Array.isArray(arr)) { const i = arr.indexOf(siMatch[0]); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(arr)); }
+              }
+              // Do NOT restore FL separately - it's part of the combo
+            } else {
+              // Regular Si button
+              let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_sis_liste_sicherheitstrupptaschen')||'[]'); } catch(_) {}
+              if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_sis_liste_sicherheitstrupptaschen', JSON.stringify(arr)); }
+            }
           } else if (/^FL\s+\d+/.test(label) || (customId && customId.startsWith('custom_fl_'))) {
             let arr = []; try { arr = JSON.parse(localStorage.getItem('removed_fls_liste_atemluftflaschen')||'[]'); } catch(_) {}
             if (Array.isArray(arr)) { const i = arr.indexOf(label); if (i !== -1) arr.splice(i,1); localStorage.setItem('removed_fls_liste_atemluftflaschen', JSON.stringify(arr)); }
