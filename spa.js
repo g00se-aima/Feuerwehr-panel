@@ -2325,6 +2325,12 @@ function showAssignmentSidebar(moveableBtn) {
     mitHidden.style.display = 'none';
     btn.appendChild(mitHidden);
     btn.appendChild(right);
+    
+    // Set the full label for persistence - construct it before adding any HTML
+    const flText = isCustomFL ? flNumber : `FL ${flNumber}`;
+    const fullLabel = `${paTxt} mit ${flText}`;
+    btn.dataset.fullLabel = fullLabel;
+    
     // Mark class and dataset for persistence/restoration
     btn.classList.remove('combo-fl-gold','combo-fl-grey');
     btn.classList.add(flStyle === 'grey' ? 'combo-fl-grey' : 'combo-fl-gold');
@@ -2381,6 +2387,13 @@ function showAssignmentSidebar(moveableBtn) {
   mitHiddenSi.style.display = 'none';
   btn.appendChild(mitHiddenSi);
   btn.appendChild(right);
+  
+  // Set the full label for persistence
+  const isCustomFlSi = isNaN(parseInt(flNumber, 10));
+  const flTextSi = isCustomFlSi ? flNumber : `FL ${flNumber}`;
+  const fullLabelSi = `${siTxt} mit ${flTextSi}`;
+  btn.dataset.fullLabel = fullLabelSi;
+  
     btn.classList.remove('combo-fl-gold','combo-fl-grey');
     btn.classList.add(flStyle === 'grey' ? 'combo-fl-grey' : 'combo-fl-gold');
     const siNumMatch = siTxt.match(/Si\s+(\d+)/i);
