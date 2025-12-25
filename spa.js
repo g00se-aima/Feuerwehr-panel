@@ -2296,7 +2296,9 @@ function showAssignmentSidebar(moveableBtn) {
     left.style.alignItems = 'center';
     // Right: FL segment (gold or grey)
     const right = document.createElement('span');
-    right.textContent = `FL ${flNumber}`;
+    // Check if flNumber is a custom FL button (doesn't start with a number)
+    const isCustomFL = isNaN(parseInt(flNumber, 10));
+    right.textContent = isCustomFL ? flNumber : `FL ${flNumber}`;
     right.style.padding = '6px 10px';
     right.style.display = 'inline-flex';
     right.style.alignItems = 'center';
@@ -2352,7 +2354,9 @@ function showAssignmentSidebar(moveableBtn) {
     left.style.display = 'inline-flex';
     left.style.alignItems = 'center';
     const right = document.createElement('span');
-    right.textContent = `FL ${flNumber}`;
+    // Check if flNumber is a custom FL button (doesn't start with a number)
+    const isCustomFL = isNaN(parseInt(flNumber, 10));
+    right.textContent = isCustomFL ? flNumber : `FL ${flNumber}`;
     right.style.padding = '6px 10px';
     right.style.display = 'inline-flex';
     right.style.alignItems = 'center';
@@ -2579,9 +2583,11 @@ function showAssignmentSidebar(moveableBtn) {
         
         b.addEventListener('click', () => {
           if (btnData.type === 'custom') {
+            // For custom FL buttons, pass just the display text (without "FL " prefix)
             decorateCombinedPAInline(moveableBtn, btnData.text, styleKind);
             updateRemovedFL(btnData.text, true);
           } else {
+            // For predefined FL buttons, pass the number only
             decorateCombinedPAInline(moveableBtn, btnData.num, styleKind);
             updateRemovedFL('FL ' + btnData.num, true);
             // Persist join state on Liste PA so it survives navigation if not assigned yet
@@ -2654,19 +2660,63 @@ function showAssignmentSidebar(moveableBtn) {
       grid.style.display = 'flex';
       grid.style.flexWrap = 'wrap';
       grid.style.gap = '8px';
-      const { available, isGold } = computeAvailableFLNumbers();
+      const { available, customAvailable, isGold } = computeAvailableFLNumbers();
+      
+      // Load custom FL buttons fresh from localStorage
+      let customFLButtonsFromStorage = [];
+      let customButtonTextsFromStorage = {};
+      try { 
+        customFLButtonsFromStorage = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]');
+        customButtonTextsFromStorage = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+      } catch (e) {}
+      
+      // Create combined sorted list of pre-defined and custom buttons
+      const allButtons = [];
       available.forEach(num => {
+        allButtons.push({ type: 'predefined', num: num, text: 'FL ' + num });
+      });
+      
+      customAvailable.forEach(btn => {
+        const match = btn.text.match(/(\d+)/);
+        const sortNum = match ? parseInt(match[1], 10) : 999999;
+        allButtons.push({ type: 'custom', num: sortNum, text: btn.text, color: btn.color, customId: btn.customId });
+      });
+      
+      // Also add any custom FL buttons directly from localStorage that might have been missed
+      customFLButtonsFromStorage.forEach(customBtn => {
+        const displayText = customButtonTextsFromStorage[customBtn.label] || customBtn.label;
+        const alreadyAdded = allButtons.some(b => b.type === 'custom' && b.customId === customBtn.id);
+        if (!alreadyAdded && customAvailable.some(c => c.customId === customBtn.id)) {
+          return;
+        }
+        if (!alreadyAdded) {
+          const match = displayText.match(/(\d+)/);
+          const sortNum = match ? parseInt(match[1], 10) : 999999;
+          allButtons.push({ type: 'custom', num: sortNum, text: displayText, color: customBtn.color, customId: customBtn.id });
+        }
+      });
+      
+      allButtons.sort((a, b) => a.num - b.num);
+      
+      allButtons.forEach(btnData => {
         const b = document.createElement('button');
-        b.textContent = 'FL ' + num;
+        b.textContent = btnData.text;
         b.className = 'btn fl-btn';
         b.style.minWidth = '64px';
         b.style.minHeight = '44px';
         b.style.fontWeight = '700';
         b.style.fontSize = '1.05rem';
         b.style.margin = '4px';
-        const styleKind = isGold(num) ? 'gold' : 'grey';
+        
+        let styleKind;
+        if (btnData.type === 'custom') {
+          styleKind = btnData.color === 'grey' ? 'grey' : 'gold';
+        } else {
+          styleKind = isGold(btnData.num) ? 'gold' : 'grey';
+        }
+        
         if (styleKind === 'gold') {
-          b.style.border = '2px solid #bfa100';
+          b.style.border = '2px solid #000';
           b.style.color = '#fff';
           b.style.background = '#bfa100';
         } else {
@@ -2674,18 +2724,26 @@ function showAssignmentSidebar(moveableBtn) {
           b.style.color = '#bbb';
           b.style.background = '#444';
         }
+        
         b.addEventListener('click', () => {
-          decorateCombinedSiInline(moveableBtn, num, styleKind);
-          updateRemovedFL('FL ' + num, true);
-          // Persist join state on Liste Si so it survives navigation if not assigned yet
-          try {
-            const current = window.location.hash.replace(/^#/, '') || 'hauptmenu';
-            if (current === 'liste-sicherheitstrupptaschen') {
-              const siMatch = (moveableBtn.textContent||'').match(/Si\s+(\d+)/i);
-              const siNum = siMatch ? parseInt(siMatch[1], 10) : null;
-              if (siNum) upsertCombinedSi(siNum, num);
-            }
-          } catch (_) {}
+          if (btnData.type === 'custom') {
+            // For custom FL buttons, pass just the display text (without "FL " prefix)
+            decorateCombinedSiInline(moveableBtn, btnData.text, styleKind);
+            updateRemovedFL(btnData.text, true);
+          } else {
+            // For predefined FL buttons, pass the number only
+            decorateCombinedSiInline(moveableBtn, btnData.num, styleKind);
+            updateRemovedFL('FL ' + btnData.num, true);
+            // Persist join state on Liste Si so it survives navigation if not assigned yet
+            try {
+              const current = window.location.hash.replace(/^#/, '') || 'hauptmenu';
+              if (current === 'liste-sicherheitstrupptaschen') {
+                const siMatch = (moveableBtn.textContent||'').match(/Si\s+(\d+)/i);
+                const siNum = siMatch ? parseInt(siMatch[1], 10) : null;
+                if (siNum) upsertCombinedSi(siNum, btnData.num);
+              }
+            } catch (_) {}
+          }
           flSidebar.style.display = 'none';
           sidebar.style.display = 'none';
         });
@@ -4755,16 +4813,17 @@ function renderVehiclePage(page) {
   const areaEl = areaRoot;
   const btn = document.createElement('button');
     // If this is a combined PA label, render with a badge using stored className
-    if (/^PA\s+\d+\s+mit\s+FL\s+\d+$/i.test(m.label || '')) {
-      const match = (m.label||'').match(/PA\s+(\d+)\s+mit\s+FL\s+(\d+)/i);
-      if (match) {
-        const paNum = match ? parseInt(match[1],10) : null;
-        const flNum = match ? parseInt(match[2],10) : null;
+    if (/^PA\s+\d+\s+mit\s+/i.test(m.label || '')) {
+      // Extract PA number
+      const paMatch = (m.label||'').match(/^PA\s+(\d+)\s+mit\s+(.+)$/i);
+      if (paMatch) {
+        const paNum = parseInt(paMatch[1],10);
+        const flPart = paMatch[2]; // This could be "FL 154" or "Custom FL Name"
         const styleKind = (m.className||'').includes('combo-fl-gold') ? 'gold' : ((m.className||'').includes('combo-fl-grey') ? 'grey' : null);
-        if (paNum && flNum && styleKind) {
+        if (paNum && flPart && styleKind) {
           // Ensure the decorator can read the PA part: set a simple text before decorating
           btn.textContent = `PA ${paNum}`;
-          decorateCombinedPAInline(btn, flNum, styleKind);
+          decorateCombinedPAInline(btn, flPart, styleKind);
           // Keep a machine-readable copy of the full label so other code can match exactly if needed
           try { btn.dataset.fullLabel = m.label; } catch (_) {}
         } else {
@@ -4773,16 +4832,16 @@ function renderVehiclePage(page) {
       } else {
         btn.textContent = m.label || 'Item';
       }
-    } else if (/^Si\s+\d+\s+mit\s+FL\s+\d+$/i.test(m.label || '')) {
+    } else if (/^Si\s+\d+\s+mit\s+/i.test(m.label || '')) {
       // Combined Si + FL stored label (restore with decorator)
-      const match = (m.label||'').match(/Si\s+(\d+)\s+mit\s+FL\s+(\d+)/i);
-      if (match) {
-        const siNum = match ? parseInt(match[1],10) : null;
-        const flNum = match ? parseInt(match[2],10) : null;
+      const siMatch = (m.label||'').match(/^Si\s+(\d+)\s+mit\s+(.+)$/i);
+      if (siMatch) {
+        const siNum = parseInt(siMatch[1],10);
+        const flPart = siMatch[2]; // This could be "FL 154" or "Custom FL Name"
         const styleKind = (m.className||'').includes('combo-fl-gold') ? 'gold' : ((m.className||'').includes('combo-fl-grey') ? 'grey' : null);
-        if (siNum && flNum && styleKind) {
+        if (siNum && flPart && styleKind) {
           btn.textContent = `Si ${siNum}`;
-          decorateCombinedSiInline(btn, flNum, styleKind);
+          decorateCombinedSiInline(btn, flPart, styleKind);
           try { btn.dataset.fullLabel = m.label; } catch (_) {}
         } else {
           btn.textContent = m.label || 'Item';
