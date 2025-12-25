@@ -2401,11 +2401,28 @@ function showAssignmentSidebar(moveableBtn) {
       '2-lf10-1.html','2-rw-1.html','3-hlf20-1.html','3-lfkat20.html','4-lf10-1.html','4-tlf3000-1.html','5-hlf20-1.html','gwg.html'
     ];
     const assigned = new Set();
+    
+    // Get custom button texts for comparison
+    const customButtonTexts = {};
+    try {
+      const stored = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+      Object.assign(customButtonTexts, stored);
+    } catch (e) {}
+    
     vehiclePages.forEach(page => {
       try {
         const moveables = JSON.parse(localStorage.getItem(moveablesKeyFor(page)) || '[]');
         (moveables||[]).forEach(m => {
-          if (m.areaId === 'fl' && m.label && /^FL\s+\d+/.test(m.label)) assigned.add(m.label.trim());
+          if (m.areaId === 'fl' && m.label) {
+            // Check for pre-defined FL buttons
+            if (/^FL\s+\d+/.test(m.label)) {
+              assigned.add(m.label.trim());
+            } else {
+              // Check if this is a custom FL button - match by the display text
+              const displayText = customButtonTexts[m.label] || m.label;
+              assigned.add(displayText);
+            }
+          }
         });
       } catch (_) {}
     });
@@ -2420,11 +2437,6 @@ function showAssignmentSidebar(moveableBtn) {
     // Also include custom FL buttons (they have text labels, not just numbers)
     let customFLButtons = [];
     try { customFLButtons = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]'); } catch (e) {}
-    const customButtonTexts = {};
-    try {
-      const stored = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
-      Object.assign(customButtonTexts, stored);
-    } catch (e) {}
     
     // Add custom buttons to available list if not assigned
     const customAvailable = customFLButtons
