@@ -5000,7 +5000,7 @@ function renderFLListePage() {
         btn.style.background = '#444';
       } else {
         btn.className = 'btn fl-btn';
-        btn.style.border = '2px solid #bfa100';
+        btn.style.border = '2px solid #000';
         btn.style.color = '#fff';
         btn.style.background = '#bfa100';
       }
