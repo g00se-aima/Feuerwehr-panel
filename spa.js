@@ -1173,12 +1173,12 @@ function addLoginLog(name) {
 function renderLoginLogWidget() {
   // Only show on hauptmenu page (check SPA routing hash)
   const currentSpaPage = window.location.hash.replace(/^#/, '') || 'hauptmenu';
-  const isMainPage = currentSpaPage === 'hauptmenu';
+  const isMainPage = currentSpaPage === 'hauptmenu' || currentSpaPage === '';
   
   let w = document.getElementById('login-log-widget');
   if (!isMainPage) {
     // Remove widget if on other pages
-    if (w) w.remove();
+    try { if (w) w.remove(); } catch (_) {}
     return;
   }
   
@@ -3554,7 +3554,8 @@ function decorateCombinedPAInline(btn, flNumber, flStyle){
   left.style.display = 'inline-flex';
   left.style.alignItems = 'center';
   const right = document.createElement('span');
-  right.textContent = `FL ${flNumber}`;
+  const isCustomFL = isNaN(parseInt(flNumber, 10));
+  right.textContent = isCustomFL ? flNumber : `FL ${flNumber}`;
   right.style.padding = '6px 10px';
   right.style.display = 'inline-flex';
   right.style.alignItems = 'center';
@@ -3628,7 +3629,8 @@ function decorateCombinedSiInline(btn, flNumber, flStyle){
   left.style.display = 'inline-flex';
   left.style.alignItems = 'center';
   const right = document.createElement('span');
-  right.textContent = `FL ${flNumber}`;
+  const isCustomFL = isNaN(parseInt(flNumber, 10));
+  right.textContent = isCustomFL ? flNumber : `FL ${flNumber}`;
   right.style.padding = '6px 10px';
   right.style.display = 'inline-flex';
   right.style.alignItems = 'center';
