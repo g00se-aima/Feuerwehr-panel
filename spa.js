@@ -2517,11 +2517,37 @@ function showAssignmentSidebar(moveableBtn) {
       available.forEach(num => {
         allButtons.push({ type: 'predefined', num: num, text: 'FL ' + num });
       });
+      
+      // Load custom FL buttons fresh from localStorage
+      let customFLButtonsFromStorage = [];
+      let customButtonTextsFromStorage = {};
+      try { 
+        customFLButtonsFromStorage = JSON.parse(localStorage.getItem('custom_fl_buttons') || '[]');
+        customButtonTextsFromStorage = JSON.parse(localStorage.getItem('custom_button_texts') || '{}');
+      } catch (e) {}
+      
       customAvailable.forEach(btn => {
         const match = btn.text.match(/(\d+)/);
         const sortNum = match ? parseInt(match[1], 10) : 999999;
         allButtons.push({ type: 'custom', num: sortNum, text: btn.text, color: btn.color, customId: btn.customId });
       });
+      
+      // Also add any custom FL buttons directly from localStorage that might have been missed
+      customFLButtonsFromStorage.forEach(customBtn => {
+        const displayText = customButtonTextsFromStorage[customBtn.label] || customBtn.label;
+        // Check if this button is already in allButtons
+        const alreadyAdded = allButtons.some(b => b.type === 'custom' && b.customId === customBtn.id);
+        if (!alreadyAdded && customAvailable.some(c => c.customId === customBtn.id)) {
+          // Already in customAvailable, skip
+          return;
+        }
+        if (!alreadyAdded) {
+          const match = displayText.match(/(\d+)/);
+          const sortNum = match ? parseInt(match[1], 10) : 999999;
+          allButtons.push({ type: 'custom', num: sortNum, text: displayText, color: customBtn.color, customId: customBtn.id });
+        }
+      });
+      
       allButtons.sort((a, b) => a.num - b.num);
       
       allButtons.forEach(btnData => {
@@ -2542,7 +2568,7 @@ function showAssignmentSidebar(moveableBtn) {
         }
         
         if (styleKind === 'gold') {
-          b.style.border = '2px solid #bfa100';
+          b.style.border = '2px solid #000';
           b.style.color = '#fff';
           b.style.background = '#bfa100';
         } else {
