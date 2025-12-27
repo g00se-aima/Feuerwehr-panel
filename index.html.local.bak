@@ -1,0 +1,24 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <!-- iOS standalone meta -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Feuerwehr Panel" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Feuerwehr Panel (SPA)</title>
+  <!-- Cache-busting query to avoid stale SW/browser cache -->
+  <link rel="stylesheet" href="style.css?v=20251207_2" />
+</head>
+<body data-server-no-reload>
+  <header id="app-header"></header>
+  <main id="app-main" class="container"></main>
+  <div id="modal-root"></div>
+  <!-- Single consolidated SPA runtime (cache-busted) -->
+  <script src="spa.js?v=20251207_2"></script>
+</body>
+</html>
