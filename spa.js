@@ -4468,6 +4468,46 @@ function setupGlobalSearch() {
       }
     } catch (e) {}
 
+    // 3. Search buttons from list pages (dynamically generate buttons from defaults)
+    try {
+      const listPages = [
+        { file: 'liste-pa.html', key: 'liste-pa', prefix: 'PA', count: 300 },
+        { file: 'liste-atemluftflaschen.html', key: 'liste-atemluftflaschen', prefix: 'FL', count: 300 },
+        { file: 'liste-atemanschluesse.html', key: 'liste-atemanschluesse', prefix: 'AM', count: 264 },
+        { file: 'liste-fluchthauben.html', key: 'liste-fluchthauben', prefix: 'FH', count: 100 },
+        { file: 'liste-technikflaschen.html', key: 'liste-technikflaschen', prefix: 'TF', count: 100 },
+        { file: 'liste-sicherheitstrupptaschen.html', key: 'liste-sicherheitstrupptaschen', prefix: 'Si', count: 100 },
+        { file: 'liste-messgeraete.html', key: 'liste-messgeraete', prefix: 'X', count: 100 },
+        { file: 'liste-csa.html', key: 'liste-csa', prefix: 'CSA', count: 100 }
+      ];
+      
+      listPages.forEach(lp => {
+        try {
+          // Get removed items for this list
+          let removed = [];
+          const removedKey = lp.prefix === 'PA' ? 'removed_pas_liste_pa' : 
+                            lp.prefix === 'FL' ? 'removed_fls_liste_atemluftflaschen' :
+                            lp.prefix === 'AM' ? 'removed_ams_liste_atemanschluesse' :
+                            lp.prefix === 'FH' ? 'removed_fhs_liste_fluchthauben' :
+                            lp.prefix === 'TF' ? 'removed_tfs_liste_technikflaschen' :
+                            lp.prefix === 'Si' ? 'removed_sis_liste_sicherheitstrupptaschen' :
+                            lp.prefix === 'X' ? 'removed_xs_liste_messgeraete' :
+                            lp.prefix === 'CSA' ? 'removed_csas_liste_csa' : '';
+          if (removedKey) {
+            try { removed = JSON.parse(localStorage.getItem(removedKey) || '[]'); } catch (_) {}
+          }
+          
+          // Generate buttons for this list page
+          for (let i = 1; i <= lp.count; i++) {
+            const label = lp.prefix + ' ' + i;
+            if (!removed.includes(label) && label.toLowerCase().includes(q)) {
+              results.push({ type: 'button', title: label, page: lp.file, snippet: lp.key });
+            }
+          }
+        } catch (_) {}
+      });
+    } catch (e) {}
+
     if (results.length === 0) { searchDropdown.style.display = 'block'; searchDropdown.innerHTML = '<div style="padding:8px">Keine Ergebnisse</div>'; return; }
     searchDropdown.style.display = 'block';
     searchDropdown.innerHTML = results.map(r => {
