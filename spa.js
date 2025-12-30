@@ -5004,6 +5004,23 @@ function renderVehiclePage(page) {
       }
     }
   });
+  
+  // Also add sidebar handlers to any buttons in areas that weren't from moveables
+  // (for lager/silschede pages with unassigned buttons or buttons created by area rendering)
+  if (typeof showAssignmentSidebar === 'function') {
+    const allAreaButtons = mainContainer.querySelectorAll('.moveable-area button.moveable-btn');
+    allAreaButtons.forEach(btn => {
+      // Check if button already has the handler (added in moveables loop above)
+      if (!btn._sidebarHandlerAdded) {
+        btn.addEventListener('click', function(e) {
+          if (e.button === 0 && !btn.classList.contains('dragging')) {
+            showAssignmentSidebar(btn);
+          }
+        });
+        btn._sidebarHandlerAdded = true;
+      }
+    });
+  }
 }
 // --- Example: render FL and TF pages with moveable buttons and sidebar ---
 function renderFLListePage() {
