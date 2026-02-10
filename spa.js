@@ -1,6 +1,45 @@
 // Consolidated minimal areas & vehicle definitions (migrated from areas.js & buttons.js)
 // These provide the runtime defaults so `spa.js` can run standalone.
 
+// Global state for expanded buttons (using event delegation to avoid memory leaks)
+(function() {
+  const expandedButtons = new WeakMap(); // Track button states without preventing garbage collection
+  
+  // Single global handler for outside clicks - uses event delegation
+  function handleOutsideClick(e) {
+    const allButtons = document.querySelectorAll('[data-has-click-to-remove="true"]');
+    allButtons.forEach(btn => {
+      const state = expandedButtons.get(btn);
+      if (state && state.isExpanded && !btn.contains(e.target)) {
+        // Collapse the button
+        btn.style.transform = '';
+        btn.style.zIndex = '';
+        const removeBtn = btn.querySelector('.remove-x-button');
+        if (removeBtn && removeBtn.parentNode) {
+          removeBtn.parentNode.removeChild(removeBtn);
+        }
+        state.isExpanded = false;
+      }
+    });
+  }
+  
+  // Install global handlers only once
+  let globalHandlersInstalled = false;
+  function ensureGlobalHandlers() {
+    if (!globalHandlersInstalled) {
+      document.addEventListener('click', handleOutsideClick);
+      document.addEventListener('touchend', handleOutsideClick);
+      globalHandlersInstalled = true;
+    }
+  }
+  
+  // Expose the expandedButtons map for use in addClickToRemove
+  window.clickToRemoveState = {
+    expandedButtons,
+    ensureGlobalHandlers
+  };
+})();
+
 // Helper: Add click-to-expand with remove button (unified for desktop and iPad)
 // Only enable if enableRemove is true (i.e., button is not in home area)
 function addClickToRemove(btn, callback, enableRemove = true) {
@@ -16,11 +55,22 @@ function addClickToRemove(btn, callback, enableRemove = true) {
   // Mark that this button has click-to-remove enabled
   btn.dataset.hasClickToRemove = 'true';
   
-  let isExpanded = false;
-  let removeBtn = null;
-  let touchStartTime = 0;
-  let touchStartX = 0;
-  let touchStartY = 0;
+  // Ensure global handlers are installed (only happens once)
+  if (window.clickToRemoveState) {
+    window.clickToRemoveState.ensureGlobalHandlers();
+  }
+  
+  // Initialize state for this button
+  const state = {
+    isExpanded: false,
+    touchStartTime: 0,
+    touchStartX: 0,
+    touchStartY: 0
+  };
+  
+  if (window.clickToRemoveState) {
+    window.clickToRemoveState.expandedButtons.set(btn, state);
+  }
   
   const toggleExpanded = function(e) {
     // Don't expand during drag
@@ -30,9 +80,9 @@ function addClickToRemove(btn, callback, enableRemove = true) {
     if (e.type === 'touchend') {
       const touch = e.changedTouches && e.changedTouches[0];
       if (touch) {
-        const deltaX = Math.abs(touch.clientX - touchStartX);
-        const deltaY = Math.abs(touch.clientY - touchStartY);
-        const deltaTime = Date.now() - touchStartTime;
+        const deltaX = Math.abs(touch.clientX - state.touchStartX);
+        const deltaY = Math.abs(touch.clientY - state.touchStartY);
+        const deltaTime = Date.now() - state.touchStartTime;
         // If moved more than 10px or took longer than 500ms, it's a drag, not a tap
         if (deltaX > 10 || deltaY > 10 || deltaTime > 500) {
           return;
@@ -52,16 +102,17 @@ function addClickToRemove(btn, callback, enableRemove = true) {
       e.preventDefault();
     }
     
-    if (!isExpanded) {
+    if (!state.isExpanded) {
       // Expand the button
       btn.style.transform = 'scale(1.2)';
       btn.style.zIndex = '1000';
       btn.style.transition = 'transform 0.2s ease';
       btn.style.position = 'relative';
       
-      // Create and show remove button
-      if (!removeBtn) {
-        removeBtn = document.createElement('div');
+      // Create and show remove button if it doesn't exist
+      const existingRemoveBtn = btn.querySelector('.remove-x-button');
+      if (!existingRemoveBtn) {
+        const removeBtn = document.createElement('div');
         removeBtn.innerHTML = '×';
         removeBtn.className = 'remove-x-button'; // Add class for identification
         removeBtn.style.position = 'absolute';
@@ -91,11 +142,11 @@ function addClickToRemove(btn, callback, enableRemove = true) {
           // Reset button state
           btn.style.transform = '';
           btn.style.zIndex = '';
-          if (removeBtn && removeBtn.parentNode) {
-            removeBtn.parentNode.removeChild(removeBtn);
+          const existingRemoveBtn = btn.querySelector('.remove-x-button');
+          if (existingRemoveBtn && existingRemoveBtn.parentNode) {
+            existingRemoveBtn.parentNode.removeChild(existingRemoveBtn);
           }
-          removeBtn = null;
-          isExpanded = false;
+          state.isExpanded = false;
           // Call the remove callback
           callback.call(btn, ev);
         };
@@ -107,16 +158,16 @@ function addClickToRemove(btn, callback, enableRemove = true) {
         btn.appendChild(removeBtn);
       }
       
-      isExpanded = true;
+      state.isExpanded = true;
     } else {
       // Collapse the button
       btn.style.transform = '';
       btn.style.zIndex = '';
-      if (removeBtn && removeBtn.parentNode) {
-        removeBtn.parentNode.removeChild(removeBtn);
+      const existingRemoveBtn = btn.querySelector('.remove-x-button');
+      if (existingRemoveBtn && existingRemoveBtn.parentNode) {
+        existingRemoveBtn.parentNode.removeChild(existingRemoveBtn);
       }
-      removeBtn = null;
-      isExpanded = false;
+      state.isExpanded = false;
     }
   };
   
@@ -127,9 +178,9 @@ function addClickToRemove(btn, callback, enableRemove = true) {
   const touchStartHandler = function(e) {
     const touch = e.touches && e.touches[0];
     if (touch) {
-      touchStartTime = Date.now();
-      touchStartX = touch.clientX;
-      touchStartY = touch.clientY;
+      state.touchStartTime = Date.now();
+      state.touchStartX = touch.clientX;
+      state.touchStartY = touch.clientY;
     }
   };
   btn._touchStartHandler = touchStartHandler;
@@ -137,23 +188,6 @@ function addClickToRemove(btn, callback, enableRemove = true) {
   btn.addEventListener('click', toggleExpanded);
   btn.addEventListener('touchstart', touchStartHandler, { passive: true });
   btn.addEventListener('touchend', toggleExpanded);
-  
-  // Close expanded state when clicking outside
-  const outsideClickHandler = function(e) {
-    if (isExpanded && !btn.contains(e.target)) {
-      btn.style.transform = '';
-      btn.style.zIndex = '';
-      if (removeBtn && removeBtn.parentNode) {
-        removeBtn.parentNode.removeChild(removeBtn);
-      }
-      removeBtn = null;
-      isExpanded = false;
-    }
-  };
-  
-  document.addEventListener('click', outsideClickHandler);
-  document.addEventListener('touchend', outsideClickHandler);
-  btn._outsideClickHandler = outsideClickHandler;
 }
 
 // Helper: Remove click-to-remove functionality from a button
@@ -170,10 +204,10 @@ function removeClickToRemove(btn) {
     btn.removeEventListener('touchstart', btn._touchStartHandler);
     delete btn._touchStartHandler;
   }
-  if (btn._outsideClickHandler) {
-    document.removeEventListener('click', btn._outsideClickHandler);
-    document.removeEventListener('touchend', btn._outsideClickHandler);
-    delete btn._outsideClickHandler;
+  
+  // Clean up state from WeakMap
+  if (window.clickToRemoveState && window.clickToRemoveState.expandedButtons) {
+    window.clickToRemoveState.expandedButtons.delete(btn);
   }
   
   // Clean up any existing remove button
