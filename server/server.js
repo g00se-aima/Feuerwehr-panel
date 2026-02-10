@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const sqlite3 = require('sqlite3').verbose();
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const app = express();
@@ -13,6 +14,20 @@ const db = new sqlite3.Database(dbPath);
 
 // Enable WAL mode for better concurrent access
 db.run('PRAGMA journal_mode = WAL');
+
+// Rate limiting - prevents abuse
+// For local trusted networks, this is generous; for internet-facing deployments,
+// reduce these limits significantly
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Apply rate limiting to all API routes
+app.use('/api/', limiter);
 
 // Middleware
 app.use(cors());

@@ -273,6 +273,25 @@ SELECT * FROM moveables LIMIT 10;
 
 ## Monitoring and Maintenance
 
+### Rate Limiting
+
+The server includes rate limiting to prevent abuse:
+- Default: 100 requests per IP per minute
+- Configured in `server.js` via `express-rate-limit`
+- Adjust limits based on your use case:
+  - Local trusted network: Current settings are fine
+  - Internet-facing: Reduce to 20-30 requests/minute
+  - High-traffic scenarios: Consider using Redis for distributed rate limiting
+
+To modify rate limits, edit `server.js`:
+```javascript
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // requests per windowMs
+  // ...
+});
+```
+
 ### Health Check
 
 Check if the server is running:
