@@ -3,7 +3,7 @@
 
 // Global state for expanded buttons (using event delegation to avoid memory leaks)
 (function() {
-  const expandedButtons = new WeakMap(); // Track button states without preventing GC
+  const expandedButtons = new WeakMap(); // Track button states without preventing garbage collection
   
   // Single global handler for outside clicks - uses event delegation
   function handleOutsideClick(e) {
@@ -34,7 +34,7 @@
   }
   
   // Expose the expandedButtons map for use in addClickToRemove
-  window._clickToRemoveState = {
+  window.clickToRemoveState = {
     expandedButtons,
     ensureGlobalHandlers
   };
@@ -56,8 +56,8 @@ function addClickToRemove(btn, callback, enableRemove = true) {
   btn.dataset.hasClickToRemove = 'true';
   
   // Ensure global handlers are installed (only happens once)
-  if (window._clickToRemoveState) {
-    window._clickToRemoveState.ensureGlobalHandlers();
+  if (window.clickToRemoveState) {
+    window.clickToRemoveState.ensureGlobalHandlers();
   }
   
   // Initialize state for this button
@@ -68,8 +68,8 @@ function addClickToRemove(btn, callback, enableRemove = true) {
     touchStartY: 0
   };
   
-  if (window._clickToRemoveState) {
-    window._clickToRemoveState.expandedButtons.set(btn, state);
+  if (window.clickToRemoveState) {
+    window.clickToRemoveState.expandedButtons.set(btn, state);
   }
   
   const toggleExpanded = function(e) {
@@ -206,8 +206,8 @@ function removeClickToRemove(btn) {
   }
   
   // Clean up state from WeakMap
-  if (window._clickToRemoveState && window._clickToRemoveState.expandedButtons) {
-    window._clickToRemoveState.expandedButtons.delete(btn);
+  if (window.clickToRemoveState && window.clickToRemoveState.expandedButtons) {
+    window.clickToRemoveState.expandedButtons.delete(btn);
   }
   
   // Clean up any existing remove button
