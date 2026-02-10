@@ -10,21 +10,28 @@ function exportData(outputFile) {
   const db = new sqlite3.Database(dbPath);
   const data = {};
   let completed = 0;
-  const tables = ['moveables', 'custom_buttons', 'custom_vehicles', 'removed_items', 'settings'];
+  // Whitelist of allowed tables for security
+  const allowedTables = ['moveables', 'custom_buttons', 'custom_vehicles', 'removed_items', 'settings'];
   
   console.log('Exporting data from database...');
   
-  tables.forEach(table => {
-    db.all(`SELECT * FROM ${table}`, [], (err, rows) => {
+  allowedTables.forEach(tableName => {
+    // Validate table name is in whitelist before using in query
+    if (!allowedTables.includes(tableName)) {
+      console.error(`Invalid table name: ${tableName}`);
+      return;
+    }
+    
+    db.all(`SELECT * FROM ${tableName}`, [], (err, rows) => {
       if (err) {
-        console.error(`Error reading ${table}:`, err);
+        console.error(`Error reading ${tableName}:`, err);
       } else {
-        data[table] = rows;
-        console.log(`Exported ${rows.length} rows from ${table}`);
+        data[tableName] = rows;
+        console.log(`Exported ${rows.length} rows from ${tableName}`);
       }
       
       completed++;
-      if (completed === tables.length) {
+      if (completed === allowedTables.length) {
         const json = JSON.stringify(data, null, 2);
         fs.writeFileSync(outputFile, json);
         console.log(`\nData exported successfully to ${outputFile}`);

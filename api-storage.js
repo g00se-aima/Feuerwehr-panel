@@ -37,6 +37,13 @@
   
   // --- Storage Wrapper ---
   
+  // Note: The storage wrapper uses synchronous XMLHttpRequest in getItem()
+  // because localStorage.getItem() is synchronous and the API is async.
+  // For better performance, consider:
+  // 1. Preloading data asynchronously on page load
+  // 2. Refactoring calling code to use async/await patterns
+  // 3. Using a cache-first strategy with periodic background sync
+  
   const originalLocalStorage = {
     getItem: localStorage.getItem.bind(localStorage),
     setItem: localStorage.setItem.bind(localStorage),
@@ -178,7 +185,11 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
-          }).catch(e => console.error('Error saving to API:', e));
+          }).catch(e => {
+            console.error('Error saving to API:', e);
+            // TODO: Implement user notification or retry mechanism
+            // For now, data is safe in localStorage but may not sync
+          });
           return;
         }
         

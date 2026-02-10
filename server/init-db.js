@@ -13,7 +13,7 @@ const schema = `
   CREATE TABLE IF NOT EXISTS moveables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     page_file TEXT NOT NULL,
-    moveable_id TEXT UNIQUE NOT NULL,
+    moveable_id TEXT NOT NULL,
     label TEXT NOT NULL,
     type TEXT,
     area_id TEXT,
@@ -21,7 +21,8 @@ const schema = `
     erk_id TEXT,
     timestamp INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(page_file, moveable_id)
   );
 
   -- Custom buttons table: stores custom PA buttons

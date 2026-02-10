@@ -66,8 +66,11 @@ app.post('/api/moveables/:pageFile', (req, res) => {
     db.run('DELETE FROM moveables WHERE page_file = ?', [pageFile], (err) => {
       if (err) {
         console.error('Error deleting moveables:', err);
-        db.run('ROLLBACK');
-        return res.status(500).json({ error: 'Failed to save moveables' });
+        db.run('ROLLBACK', (rollbackErr) => {
+          if (rollbackErr) console.error('Error during rollback:', rollbackErr);
+          res.status(500).json({ error: 'Failed to save moveables' });
+        });
+        return;
       }
       
       const stmt = db.prepare(`
@@ -88,14 +91,27 @@ app.post('/api/moveables/:pageFile', (req, res) => {
         );
       });
       
-      stmt.finalize();
-      
-      db.run('COMMIT', (err) => {
-        if (err) {
-          console.error('Error committing transaction:', err);
-          return res.status(500).json({ error: 'Failed to save moveables' });
+      stmt.finalize((finalizeErr) => {
+        if (finalizeErr) {
+          console.error('Error finalizing statement:', finalizeErr);
+          db.run('ROLLBACK', (rollbackErr) => {
+            if (rollbackErr) console.error('Error during rollback:', rollbackErr);
+            res.status(500).json({ error: 'Failed to save moveables' });
+          });
+          return;
         }
-        res.json({ success: true, count: moveables.length });
+        
+        db.run('COMMIT', (commitErr) => {
+          if (commitErr) {
+            console.error('Error committing transaction:', commitErr);
+            db.run('ROLLBACK', (rollbackErr) => {
+              if (rollbackErr) console.error('Error during rollback:', rollbackErr);
+              res.status(500).json({ error: 'Failed to save moveables' });
+            });
+            return;
+          }
+          res.json({ success: true, count: moveables.length });
+        });
       });
     });
   });
