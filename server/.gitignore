@@ -8,6 +8,11 @@ yarn-error.log
 *.db-shm
 *.db-wal
 
+# Export/backup files
+*.json
+!package.json
+!package-lock.json
+
 # Environment files
 .env
 .env.local

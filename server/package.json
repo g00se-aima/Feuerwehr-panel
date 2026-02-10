@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node init-db.js"
+    "init-db": "node init-db.js",
+    "export": "node export-import.js export",
+    "import": "node export-import.js import"
   },
   "keywords": ["feuerwehr", "fire-department", "resource-management"],
   "author": "",

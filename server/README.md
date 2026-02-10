@@ -22,6 +22,20 @@ The server will be available at `http://localhost:3000`
 - `npm start` - Start the server
 - `npm run dev` - Start with auto-reload (requires nodemon)
 - `npm run init-db` - Initialize/reset the database
+- `npm run export` - Export all data to JSON (default: data-export.json)
+- `npm run import` - Import data from JSON (default: data-export.json)
+
+### Export/Import Examples
+
+Export data to a specific file:
+```bash
+node export-import.js export backup-2024-02-10.json
+```
+
+Import data from a specific file:
+```bash
+node export-import.js import backup-2024-02-10.json
+```
 
 ## Configuration
 
