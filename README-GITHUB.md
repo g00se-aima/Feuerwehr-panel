@@ -3,7 +3,15 @@ Feuerwehr Panel
 
 This repo contains a small SPA (single-file runtime in `spa.js`) plus `index.html` and `style.css`.
 
+## Deployment Options
+
+### Option 1: GitHub Pages (Single User)
 Goal: publish to GitHub Pages (HTTPS) so you can Add-to-Home-Screen on iPad and get standalone fullscreen behavior.
+
+### Option 2: Local Server with Multi-User Support
+For multi-user access with centralized SQL storage, see [DEPLOYMENT.md](DEPLOYMENT.md) for complete setup instructions.
+
+## GitHub Pages Setup
 
 Quick steps to create a GitHub repo and publish from this local folder:
 
@@ -28,7 +36,19 @@ Notes:
 - Service worker (`sw.js`) and `manifest.webmanifest` are included to enable PWA behavior once hosted over HTTPS.
 - If you prefer, you can publish with Netlify: create a new site, drag-and-drop the ZIP or connect the GitHub repo.
 
-If you want, I can also:
-- Prepare a ZIP for drag-and-drop deploy to Netlify or AirDrop to the iPad.
-- Attempt to create the GitHub repo via the GitHub API (requires your token).
+## Multi-User Server Setup
+
+For hosting on a local server with SQL storage and multi-user access:
+
+1. Navigate to the `server` directory
+2. Install dependencies: `npm install`
+3. Initialize database: `npm run init-db`
+4. Start server: `npm start`
+5. Access at `http://localhost:3000`
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete setup, configuration, and deployment instructions including:
+- Network access configuration
+- Production deployment options
+- Database backup and maintenance
+- Troubleshooting guide
 

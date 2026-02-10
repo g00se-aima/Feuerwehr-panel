@@ -9,9 +9,21 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Feuerwehr Panel" />
   <link rel="manifest" href="manifest.webmanifest">
-  <title>Feuerwehr Panel (SPA)</title>
+  <title>Feuerwehr Panel (SPA) - Multi-User Mode</title>
   <!-- Cache-busting query to avoid stale SW/browser cache -->
   <link rel="stylesheet" href="style.css?v=20251207_2" />
+  
+  <!-- Enable API storage for multi-user access -->
+  <script>
+    // Configuration for multi-user mode
+    window.USE_API_STORAGE = true;
+    window.API_BASE_URL = 'http://localhost:3000/api';
+    
+    // If your server is on a different machine, update the URL:
+    // window.API_BASE_URL = 'http://192.168.1.100:3000/api';
+    
+    console.log('Multi-user mode enabled. API URL:', window.API_BASE_URL);
+  </script>
 </head>
 <body data-server-no-reload>
   <header id="app-header"></header>
