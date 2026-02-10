@@ -109,10 +109,10 @@ function addClickToRemove(btn, callback, enableRemove = true) {
       btn.style.transition = 'transform 0.2s ease';
       btn.style.position = 'relative';
       
-      // Create and show remove button
-      let removeBtn = btn.querySelector('.remove-x-button');
-      if (!removeBtn) {
-        removeBtn = document.createElement('div');
+      // Create and show remove button if it doesn't exist
+      const existingRemoveBtn = btn.querySelector('.remove-x-button');
+      if (!existingRemoveBtn) {
+        const removeBtn = document.createElement('div');
         removeBtn.innerHTML = '×';
         removeBtn.className = 'remove-x-button'; // Add class for identification
         removeBtn.style.position = 'absolute';
@@ -163,9 +163,9 @@ function addClickToRemove(btn, callback, enableRemove = true) {
       // Collapse the button
       btn.style.transform = '';
       btn.style.zIndex = '';
-      const removeBtn = btn.querySelector('.remove-x-button');
-      if (removeBtn && removeBtn.parentNode) {
-        removeBtn.parentNode.removeChild(removeBtn);
+      const existingRemoveBtn = btn.querySelector('.remove-x-button');
+      if (existingRemoveBtn && existingRemoveBtn.parentNode) {
+        existingRemoveBtn.parentNode.removeChild(existingRemoveBtn);
       }
       state.isExpanded = false;
     }
