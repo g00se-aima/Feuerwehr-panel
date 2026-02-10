@@ -1,14 +1,14 @@
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 // Initialize database
 const dbPath = path.join(__dirname, 'feuerwehr.db');
-const db = new Database(dbPath);
+const db = new sqlite3.Database(dbPath);
 
 console.log('Creating database schema...');
 
 // Create tables
-db.exec(`
+const schema = `
   -- Moveables table: stores all moveable items (buttons) and their assignments
   CREATE TABLE IF NOT EXISTS moveables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,9 +66,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_moveables_assigned_to_page ON moveables(assigned_to_page);
   CREATE INDEX IF NOT EXISTS idx_custom_vehicles_group ON custom_vehicles(group_name);
   CREATE INDEX IF NOT EXISTS idx_removed_items_type ON removed_items(item_type, list_key);
-`);
+`;
 
-console.log('Database schema created successfully!');
-console.log('Database location:', dbPath);
+db.serialize(() => {
+  db.exec(schema, (err) => {
+    if (err) {
+      console.error('Error creating schema:', err);
+      process.exit(1);
+    }
+    console.log('Database schema created successfully!');
+    console.log('Database location:', dbPath);
+    db.close();
+  });
+});
 
-db.close();
