@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Database Integration - Feuerwehr Panel</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #d32f2f;
+            margin-top: 0;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #d32f2f;
+            padding-bottom: 8px;
+        }
+        .status {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin: 16px 0;
+            font-weight: 500;
+        }
+        .status.online {
+            background: #c8e6c9;
+            color: #1b5e20;
+        }
+        .status.offline {
+            background: #ffcdd2;
+            color: #b71c1c;
+        }
+        button {
+            background: #d32f2f;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        button:hover {
+            background: #b71c1c;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .input-group {
+            margin: 16px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #1976d2;
+            padding: 12px 16px;
+            margin: 16px 0;
+        }
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #f57c00;
+            padding: 12px 16px;
+            margin: 16px 0;
+        }
+        .success {
+            background: #c8e6c9;
+            border-left: 4px solid #388e3c;
+            padding: 12px 16px;
+            margin: 16px 0;
+        }
+        #output {
+            margin-top: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🚒 Feuerwehr Panel - SQL Database Integration</h1>
+        <p>This page demonstrates the SQL database backend integration for the Feuerwehr Panel application.</p>
+        
+        <div id="status" class="status offline">
+            ⚠️ Checking database connection...
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📋 Quick Start</h2>
+        
+        <div class="warning">
+            <strong>⚠️ Before you begin:</strong> Make sure the backend server is running!
+            <pre style="background: #fff; color: #333; margin-top: 8px;">npm install
+npm start</pre>
+        </div>
+
+        <div class="input-group">
+            <label for="apiUrl">API Server URL:</label>
+            <input type="text" id="apiUrl" value="http://localhost:3000/api" placeholder="http://localhost:3000/api">
+        </div>
+
+        <button onclick="testConnection()">🔌 Test Connection</button>
+        <button onclick="showMigrationSteps()">📖 Migration Instructions</button>
+    </div>
+
+    <div class="card">
+        <h2>🔄 Data Migration</h2>
+        <p>Migrate your existing localStorage data to the SQL database.</p>
+
+        <div class="info">
+            <strong>ℹ️ Migration Process:</strong><br>
+            1. Export data from localStorage (creates backup)<br>
+            2. Upload data to SQL server<br>
+            3. Verify migration was successful
+        </div>
+
+        <button onclick="exportData()">💾 Export localStorage Data</button>
+        <button onclick="uploadData()">☁️ Upload to SQL Server</button>
+        <button onclick="testDataRetrieval()">✅ Test Data Retrieval</button>
+    </div>
+
+    <div class="card">
+        <h2>🧪 Test Database Operations</h2>
+        <p>Test various database operations to verify everything is working.</p>
+
+        <button onclick="testGetMoveables()">📦 Get Moveables</button>
+        <button onclick="testSaveMoveables()">💾 Save Test Moveables</button>
+        <button onclick="testGetButtonTexts()">📝 Get Button Texts</button>
+        <button onclick="testExport()">📤 Export All Data</button>
+    </div>
+
+    <div class="card">
+        <h2>📊 Output</h2>
+        <div id="output"></div>
+    </div>
+
+    <!-- Load the database adapter and migration scripts -->
+    <script src="db-adapter.js"></script>
+    <script src="migrate-to-sql.js"></script>
+
+    <script>
+        let dbAdapter;
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initializeAdapter();
+        });
+
+        async function initializeAdapter() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            dbAdapter = new DatabaseAdapter(apiUrl);
+            await testConnection();
+        }
+
+        async function testConnection() {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status offline';
+            statusEl.innerHTML = '⏳ Testing connection...';
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            dbAdapter = new DatabaseAdapter(apiUrl);
+            
+            const isConnected = await dbAdapter.init();
+            
+            if (isConnected) {
+                statusEl.className = 'status online';
+                statusEl.innerHTML = '✅ Connected to SQL database server';
+                log('success', 'Successfully connected to database server at ' + apiUrl);
+            } else {
+                statusEl.className = 'status offline';
+                statusEl.innerHTML = '❌ Cannot connect to database server';
+                log('error', 'Failed to connect. Make sure the server is running at ' + apiUrl);
+            }
+        }
+
+        function exportData() {
+            try {
+                const data = exportLocalStorageData();
+                log('success', 'Data exported successfully! Check your downloads folder.');
+                log('info', `Exported ${Object.keys(data.moveables).length} pages with moveables, ${data.customButtons.length} custom buttons, ${Object.keys(data.buttonTexts).length} button texts`);
+            } catch (error) {
+                log('error', 'Export failed: ' + error.message);
+            }
+        }
+
+        async function uploadData() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            try {
+                log('info', 'Starting upload to ' + apiUrl + '...');
+                const result = await uploadToServer(apiUrl);
+                log('success', 'Upload successful! Data has been migrated to SQL database.');
+            } catch (error) {
+                log('error', 'Upload failed: ' + error.message);
+            }
+        }
+
+        async function testDataRetrieval() {
+            try {
+                log('info', 'Testing data retrieval from SQL database...');
+                
+                // Test getting button texts
+                const buttonTexts = await dbAdapter.getButtonTexts();
+                log('success', `Retrieved ${Object.keys(buttonTexts).length} button texts from database`);
+                
+                // Test getting custom buttons
+                const customButtons = await dbAdapter.getCustomButtons();
+                log('success', `Retrieved ${customButtons.length} custom buttons from database`);
+                
+                log('success', 'Data retrieval test complete! ✓');
+            } catch (error) {
+                log('error', 'Data retrieval failed: ' + error.message);
+            }
+        }
+
+        async function testGetMoveables() {
+            try {
+                const pageFile = 'tlf-azubi.html';
+                log('info', `Fetching moveables for ${pageFile}...`);
+                const moveables = await dbAdapter.getMoveables(pageFile);
+                log('success', `Retrieved ${moveables.length} moveables`);
+                if (moveables.length > 0) {
+                    log('info', 'Sample moveable: ' + JSON.stringify(moveables[0], null, 2));
+                }
+            } catch (error) {
+                log('error', 'Failed to get moveables: ' + error.message);
+            }
+        }
+
+        async function testSaveMoveables() {
+            try {
+                const testData = [{
+                    id: 'test-' + Date.now(),
+                    label: 'Test Equipment',
+                    pageFile: 'test-page.html',
+                    areaId: 'test-area',
+                    timestamp: Date.now()
+                }];
+                
+                log('info', 'Saving test moveables...');
+                await dbAdapter.saveMoveables('test-page.html', testData);
+                log('success', 'Test moveables saved successfully!');
+                
+                // Verify
+                const retrieved = await dbAdapter.getMoveables('test-page.html');
+                log('success', `Verification: Retrieved ${retrieved.length} moveables from test-page.html`);
+            } catch (error) {
+                log('error', 'Failed to save moveables: ' + error.message);
+            }
+        }
+
+        async function testGetButtonTexts() {
+            try {
+                log('info', 'Fetching button texts...');
+                const buttonTexts = await dbAdapter.getButtonTexts();
+                log('success', `Retrieved ${Object.keys(buttonTexts).length} button text customizations`);
+                if (Object.keys(buttonTexts).length > 0) {
+                    const sample = Object.entries(buttonTexts)[0];
+                    log('info', `Sample: "${sample[0]}" → "${sample[1]}"`);
+                }
+            } catch (error) {
+                log('error', 'Failed to get button texts: ' + error.message);
+            }
+        }
+
+        async function testExport() {
+            try {
+                const apiUrl = document.getElementById('apiUrl').value;
+                log('info', 'Requesting full database export...');
+                
+                const response = await fetch(`${apiUrl}/export`);
+                if (!response.ok) throw new Error('Export failed');
+                
+                const data = await response.json();
+                log('success', 'Export retrieved successfully!');
+                log('info', `Moveables: ${data.moveables.length}, Custom Buttons: ${data.customButtons.length}, Button Texts: ${data.buttonTexts.length}, Removed Items: ${data.removedItems.length}`);
+                log('info', 'Exported at: ' + data.exportedAt);
+                
+                // Download the export
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `database-export-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                log('success', 'Export file downloaded!');
+            } catch (error) {
+                log('error', 'Export failed: ' + error.message);
+            }
+        }
+
+        function showMigrationSteps() {
+            log('info', `
+📖 MIGRATION STEPS:
+
+1. BACKUP YOUR DATA (Important!)
+   → Click "Export localStorage Data" to download a backup
+   → Keep this file safe in case you need to restore
+
+2. START THE SERVER
+   → Open terminal in the project directory
+   → Run: npm install
+   → Run: npm start
+   → Server should start on http://localhost:3000
+
+3. VERIFY CONNECTION
+   → Click "Test Connection" button above
+   → Status should show green "Connected"
+
+4. MIGRATE DATA
+   → Click "Upload to SQL Server" button
+   → Wait for confirmation message
+   → Click "Test Data Retrieval" to verify
+
+5. UPDATE YOUR APP (Optional)
+   → Include db-adapter.js in your HTML
+   → Replace localStorage calls with dbAdapter methods
+   → See SQL_DATABASE_GUIDE.md for details
+
+6. DEPLOY (Optional)
+   → Deploy server to Railway, Render, or VPS
+   → Update API URL in your frontend
+   → Configure CORS and authentication for production
+
+Need help? Check SQL_DATABASE_GUIDE.md for complete documentation.
+            `.trim());
+        }
+
+        function log(type, message) {
+            const output = document.getElementById('output');
+            const entry = document.createElement('div');
+            entry.className = type;
+            
+            const time = new Date().toLocaleTimeString();
+            const icon = {
+                'success': '✅',
+                'error': '❌',
+                'info': 'ℹ️',
+                'warning': '⚠️'
+            }[type] || 'ℹ️';
+            
+            entry.innerHTML = `<strong>[${time}] ${icon}</strong> ${message.replace(/\n/g, '<br>')}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+        }
+    </script>
+</body>
+</html>
